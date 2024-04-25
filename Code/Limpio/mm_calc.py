@@ -41,7 +41,6 @@ def mm_calc_run_alg_all(exceldata):
     
     return combined_results
 
-
 def mm_calc_run_alg(exceldata, parametros_localidad):
     data_completa =exceldata["DATOS"]
     df_clases =exceldata["CLASES"]
@@ -80,7 +79,7 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
 
 
     # Calculo decaimiento
-    pendiente= calcular_decaimiento(df_edad,
+    pendiente = calcular_decaimiento(df_edad,
                                     problema_calidad_agua=problema_calidad_agua,
                                     caudal=df_porc_caudal_para_pendiente)
     caudal_ext= df_caudal.merge(pendiente[["Clase","Pendiente"]], on='Clase')
@@ -141,11 +140,12 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
     data['Clase corregida'] = data['Curva proy']
     
     # Calculate Error_0.5 using 'Curva proy'
+    #chipi chipi
     E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
             .merge(caudal_ext, left_on="Clase corregida", right_on="Clase", how='left')\
             .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
                                                           error_ultra, intervalos_caudal_bajo, 
-                                                          intervalos_caudal_bajo_c25))
+                                                          intervalos_caudal_bajo_c25, 0))
     E = E.reset_index(name='Error_0.5')
     data = data.merge(E, on='INSTALACION', how='left')
     
@@ -165,7 +165,7 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
                 .merge(caudal_ext, left_on="Curva proy", right_on="Clase", how='left')\
                 .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
                                                               error_ultra, intervalos_caudal_bajo, 
-                                                              intervalos_caudal_bajo_c25))
+                                                              intervalos_caudal_bajo_c25, 0))
         E = E.reset_index(name=f'Error_{i + 0.5}')
         data = data.merge(E, on='INSTALACION', how='left')
     
@@ -212,6 +212,8 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
 
 ## Definición de funciones principales
 
+#Aquí hay que agregar algo con respecto a si es ultra
+#[TODO ULTRA]
 def calcular_decaimiento(edad, problema_calidad_agua=False,caudal=None ):
     """Calcula decaimiento mediante regresion lineal entre el rendimiento y ln(años) para los datos de la tabla/pestaña edad.
     Ajusta si es que tienen problemas de calidad de agua.
@@ -222,6 +224,20 @@ def calcular_decaimiento(edad, problema_calidad_agua=False,caudal=None ):
     if not(problema_calidad_agua):
         out = out.merge(caudal[caudal['Regimen']=="Bajo"], on='Clase')
         out['Pendiente']=out['Pendiente']/out['Porcentaje']
+        
+        
+    #row fija para ULTRA:
+    #Clase ULTRA, Parametros [None, None] Regimen Alto, Pendiente 0, Intercepto 0.02, porcentaje 0.07
+    ultra_row = pd.DataFrame({
+        "Clase": ["ULTRA"],
+        "Parametros": [None],  # Or [np.nan, np.nan] to represent missing values
+        "Regimen": ["Alto"],
+        "Pendiente": [1],
+        "Intercepto": [0.02],
+        "Porcentaje": [0.07]
+    })
+    
+    out = pd.concat([out,ultra_row], ignore_index=True)
     
     return out[["Clase",'Pendiente','Intercepto']]        
 
@@ -280,27 +296,30 @@ def seleccionar_autocontrol(df_autocontrol, localidad, tipo_error_CAlto):
     else: 
         raise Exception("Revisar")
         
-def error(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25):
+def error(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
     """Calcula el error de cada medidor tomando todas las consideraciones correspondientes."""
 
     diametro=group["Diametro_max"].tolist()[0]
-    grupo=group["Grupo"].tolist()[0]
-    
+    if flag == 1:    
+        grupo = group["Grupo"].tolist()[0]
+    else:
+        grupo = group["Curva proy"].tolist()[0]
+        
     if grupo=='ULTRA':
         return error_ultra
-    
+        
     if grupo =='C-25':
         intervalos_cb= intervalos_caudal_bajo_c25
     else:
         intervalos_cb= intervalos_caudal_bajo
         
-
     if diametro: 
         group['Decaimiento'] = group.apply(lambda x:x["Año 0"]+ x["Pendiente"]*np.log(x["Antiguedad ajustada"])/100  if x["Intervalo (l/h)"] in intervalos_cb else x["Año 0"] ,axis=1)
         return autocontrol*(1 - group['% Consumo'].sum())+ sum(group['% Consumo']*group['Decaimiento'])
     else:
         group['Decaimiento'] = group.apply(lambda x:x["Año 0"]+ x["Pendiente"]*np.log(x["Antiguedad ajustada"])/100  if x["Intervalo (l/h)"] in intervalos_cb else x["Año 0"] ,axis=1)
         return autocontrol_diametro_alto*(1 - group['% Consumo'].sum())+ sum(group['% Consumo']*group['Decaimiento'])
+    
 
 
 def IyF(data,
@@ -399,16 +418,16 @@ def armar_curva_proyectada(df):
     col_salida = 'Curva proy'
     # Define conditions
     conditions = [
-        (df[col_diametro] <= 25) & (df[col_clase_corregida] == "ULTRA"),  # First condition
-        df[col_diametro] == 25,  # Second condition
-        df[col_diametro] < 25  # Third condition
+        (df[col_clase_corregida] == "ULTRA"),
+        df[col_diametro] == 25,
+        df[col_diametro] < 25,
     ]
     
     # Define corresponding choices
     choices = [
-        "ULTRA",  # First choice
-        "ULTRA",  # Second choice
-        "C-" + df[col_diametro].astype(str)  # Third choice
+        "ULTRA",
+        "ULTRA",  
+        "C-" + df[col_diametro].astype(str),
     ]
     
     # Apply the select function
@@ -487,19 +506,19 @@ def get_localidades_from_excel(exceldata, sheet_name='PARAMETROS_NEO'):
     return localidades
 
 
-if __name__ == "__main__": 
+# if __name__ == "__main__": 
     
-    # localidad = "CURICO"
-    exceldata=pd.read_excel(direccion_excel, sheet_name=None)
-    salida = mm_calc_run_alg_all(exceldata)
+#     # localidad = "CURICO"
+#     exceldata=pd.read_excel(direccion_excel, sheet_name=None)
+#     salida = mm_calc_run_alg_all(exceldata)
     
-    # localidad_parameters = read_parameters_from_excel(exceldata, localidad)
-    # salida = mm_calc_run_alg(exceldata, localidad_parameters)
+#     # localidad_parameters = read_parameters_from_excel(exceldata, localidad)
+#     # salida = mm_calc_run_alg(exceldata, localidad_parameters)
     
-    #Grabar la salida
-    with pd.ExcelWriter(direccion_excel_salida, engine='xlsxwriter') as writer:
-        for sheet_name, df in salida.items():
-            df.to_excel(writer, sheet_name=sheet_name, index=False)
+#     #Grabar la salida
+#     with pd.ExcelWriter(direccion_excel_salida, engine='xlsxwriter') as writer:
+#         for sheet_name, df in salida.items():
+#             df.to_excel(writer, sheet_name=sheet_name, index=False)
 
 
 
