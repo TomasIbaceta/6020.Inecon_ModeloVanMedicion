@@ -32,9 +32,7 @@ class Ui(QtWidgets.QMainWindow):
         self.show() # Show the GUI
         
         self.pushButton_Ejecutar.setEnabled(False) #can only be pressed after a table is generated
-        
-        self.pushButton_Cargar_parametros.clicked.connect(self.cargar_parametros)
-        
+                
         self.pushButton_Cargar.clicked.connect(self.cargar_carpeta)
         self.pushButton_Ejecutar.clicked.connect(self.ejecutar_algoritmo)
         
@@ -63,27 +61,12 @@ class Ui(QtWidgets.QMainWindow):
             self.logger.info('\n' + self.model.print_log_filtering())
             self.openInfoDialog(valid, total)
             self.label_progress.setText(f"0/{valid}")
+            self.pushButton_Ejecutar.setEnabled(True)
                    
         except ValueError as e:
             QMessageBox.warning(self, "Error", str(e))  # Show error message in a dialog box
             print(str(e))
-            
-    def cargar_parametros(self):
-        # Open a file dialog to select the parameters file
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, 
-            "Seleccionar archivo de parámetros", 
-            "", 
-            "Excel Files (*.xlsx *.xls)"  # Filter to Excel files
-        )
-
-        if file_path:
-            # If a file is selected, load the parameters into the model
-            self.model.load_vancalculator_parameters(file_path)
-            self.param_path = file_path  # Store the parameter file path
-
-            self.pushButton_Ejecutar.setEnabled(True)
-             
+                         
     def ejecutar_algoritmo(self):
         self.pushButton_Ejecutar.setEnabled(False)
         self.worker = Worker(self.model, self.logger)

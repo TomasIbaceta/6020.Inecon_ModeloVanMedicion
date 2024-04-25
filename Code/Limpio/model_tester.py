@@ -2,15 +2,11 @@ import pandas as pd
 from model import BulkExcelLoader
 
 #folder_path es directorio porque carga todos los excels que encuentra
-folder_path = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
-
-#parametros solo es uno porque los parámetros se comparten entre todos.
-param_path = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\Code\Limpio\Parametros\VAN_Parametros.xlsx"
+folder_path = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
 
 #------ Load the model ----- #
 model = BulkExcelLoader()
 model.load_filesList_by_folderName(folder_path)
-model.load_vancalculator_parameters(param_path)
 
 #-------- Run the algorithm --------#
 

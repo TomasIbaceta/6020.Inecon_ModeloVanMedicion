@@ -93,10 +93,6 @@ class BulkExcelLoader:
            self.van_calc = VanCalculator()
            self.van_calc.load_df_from_excel(preprocessed_filename)
 
-           # If parameters were preloaded, load them into the VanCalculator
-           if self.param_path:
-               self.van_calc.load_parameters(self.param_path)
-
            # Run the VanCalculator methods
            self.van_calc.run_all()
 

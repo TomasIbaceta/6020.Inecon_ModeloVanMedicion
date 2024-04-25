@@ -15,18 +15,12 @@ class VanCalculator:
         self.dfs = {}
         self.parameters = {}
         self.excel_path = None
-        self.param_path = None
 
     def load_df_from_excel(self, excel_path):
         # Load the main DataFrame(s) from the specified Excel path
         self.excel_path = excel_path
         self.dfs = pd.read_excel(excel_path, sheet_name=None)  # Dictionary of DataFrames
 
-    def load_parameters(self, param_path):
-        # Load additional parameter DataFrames
-        self.param_path = param_path
-        self.parameters = pd.read_excel(param_path, sheet_name=None)
-    
     def run_all(self):
         self.get_flujo_diameter_table()
         self.merge_tarifa()
@@ -42,11 +36,12 @@ class VanCalculator:
         self.calculate_impuesto()
         self.calculate_flujo()
         self.calculate_van()
+        self.general_cleanup()
         
     # Assuming 'datos_df' has been loaded from the 'Datos' sheet
-    def merge_tarifa(self, main_sheet_name="BBDD - Error Actual", datos_sheet_name='Datos'):
+    def merge_tarifa(self, main_sheet_name="BBDD - Error Actual", datos_sheet_name='Datos_Tarifas'):
         main_df = self.dfs[main_sheet_name]
-        datos_df = self.parameters[datos_sheet_name]
+        datos_df = self.dfs[datos_sheet_name]
         
         main_localidad_col = 'LOCALIDAD'
         main_tarifa_col = 'Tarifa'
@@ -130,7 +125,7 @@ class VanCalculator:
         self.dfs[sheet_name] = df
            
     def retrieve_elasticity(self, flujo_sheet_name='FLUJO E1'):
-        flujo_df = self.parameters[flujo_sheet_name]
+        flujo_df = self.dfs[flujo_sheet_name]
         # Find the row index where 'Elasticidad' is located
         row_idx = flujo_df.index[flujo_df.isin(['Elasticidad']).any(axis=1)][0]
         
@@ -200,7 +195,7 @@ class VanCalculator:
         first_data = 'SI'
         last_data = 'Vida útil técnica'
         
-        raw_data = self.parameters[flujo_sheet_name]
+        raw_data = self.dfs[flujo_sheet_name]
         
         #find the row where the beginning and end of the table are.
         #+1 just because the table is read with a fake header we need to remove.
@@ -210,7 +205,7 @@ class VanCalculator:
         # specify number of rows to read after header row
         num_rows = footer_idx - header_idx
         clean_data = pd.read_excel(
-            io=self.param_path,
+            io=self.excel_path,
             sheet_name=flujo_sheet_name,
             header=header_idx,
             nrows=num_rows,
@@ -410,6 +405,15 @@ class VanCalculator:
     
         # Update the DataFrame in your dictionary
         self.dfs[main_sheet_name] = main_df
+        
+    def general_cleanup(self):
+        # List the sheet names to remove
+        sheets_to_remove = ['FLUJO E1', 'Datos_Tarifas']
+
+        # Remove each specified sheet from self.dfs if it exists
+        for sheet_name in sheets_to_remove:
+            if sheet_name in self.dfs:
+                del self.dfs[sheet_name]
 
     def export_to_excel(self, filename_out):
         # Using XlsxWriter as the engine
@@ -421,10 +425,9 @@ class VanCalculator:
 if __name__ == "__main__":
     folder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\Code"
     filename_in = r"PETORCA-Processed_MM.xlsx"
-    filename_param = r"VAN_Parametros.xlsx"
     
     excel_path = f"{folder}\\{filename_in}"
-    param_path = f"{folder}\\{filename_param}"
+    # param_path = f"{folder}\\{filename_param}"
     
     filename_out = r"PETORCA-OUTPUT.xlsx"
 
@@ -433,7 +436,7 @@ if __name__ == "__main__":
 
     # Load the main DataFrame(s) and parameters
     van_calc.load_df_from_excel(excel_path)
-    van_calc.load_parameters(param_path)
+    # van_calc.load_parameters(param_path)
 
     # Perform your operations
     van_calc.run_all()

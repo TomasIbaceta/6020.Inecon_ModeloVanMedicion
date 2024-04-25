@@ -16,6 +16,12 @@ def mm_calc_run_alg_all(exceldata):
     # Initialize lists to hold combined results for each sheet
     combined_results = {}
     
+    # Add 'FLUJO E1' and 'Datos_Tarifas' sheets to the combined results
+    for special_sheet in ['FLUJO E1', 'Datos_Tarifas']:
+        # Check if the sheet exists in the original exceldata
+        if special_sheet in exceldata:
+            combined_results[special_sheet] = exceldata[special_sheet]
+    
     # Iterate through all localities and process them
     for localidad in localidades:
         # Read parameters for the current locality
