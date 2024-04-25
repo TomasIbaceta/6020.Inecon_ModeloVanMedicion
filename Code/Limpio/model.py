@@ -69,7 +69,7 @@ class BulkExcelLoader:
     def run_preprocessor_on_filename(self, filename):
         try:
             df = pd.read_excel(f"{self.folderName}\\{filename}", sheet_name=None)
-            output = mm_calc_run_alg(df)
+            output = mm_calc_run_alg_all(df)
             
             # Ensure the output directory exists
             output_dir = os.path.dirname(self.get_preprocessed_filepath(filename))
