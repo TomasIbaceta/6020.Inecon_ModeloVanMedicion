@@ -68,7 +68,7 @@ class VanCalculator:
         df = self.dfs[sheet_name]
         # Initial V_sub 1 calculation as before
         consumo_promedio = df["CONSUMO PROMEDIO"]
-        df["V_sub_1"] = (-1 * consumo_promedio * df["Error_1"] / (1 + df["Error_1"]))
+        df["V_sub_1"] = (-1 * consumo_promedio * df["Error"] / (1 + df["Error"]))
     
         # Calculate V_sub 2 to V_sub 15
         for i in range(2, 16):  # 2 to 15 inclusive

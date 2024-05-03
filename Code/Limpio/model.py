@@ -83,6 +83,10 @@ class BulkExcelLoader:
             
     def run_algorithm_on_filename(self, filename):
        try:
+           if os.path.basename(filename).startswith('~$'):
+               print(f"Skipping temporary or system file: {filename}")
+               return
+           
            # Run the preprocessor first
            self.run_preprocessor_on_filename(filename)
            

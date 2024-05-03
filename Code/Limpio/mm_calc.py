@@ -134,18 +134,21 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
         data = data.merge(E, on='INSTALACION', how='left')
     
     # Save the original 'Clase corregida' column
-    data['Original Clase Corregida'] = data['Clase corregida']
+    # data['Original Clase Corregida'] = data['Clase corregida']
     
     # Replace 'Clase corregida' with 'Curva proy' to calculate Error_0.5 and subsequent errors
-    data['Clase corregida'] = data['Curva proy']
+    # data['Clase corregida'] = data['Curva proy']
+    
+    data['Original Clase'] = data['Clase']
+    data['Clase'] = data['Curva proy']
     
     # Calculate Error_0.5 using 'Curva proy'
     #chipi chipi
     E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
-            .merge(caudal_ext, left_on="Clase corregida", right_on="Clase", how='left')\
+            .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
             .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
                                                           error_ultra, intervalos_caudal_bajo, 
-                                                          intervalos_caudal_bajo_c25, 0))
+                                                          intervalos_caudal_bajo_c25, 1))
     E = E.reset_index(name='Error_0.5')
     data = data.merge(E, on='INSTALACION', how='left')
     
@@ -162,18 +165,20 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
         )
         
         E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
-                .merge(caudal_ext, left_on="Curva proy", right_on="Clase", how='left')\
+                .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
                 .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
                                                               error_ultra, intervalos_caudal_bajo, 
-                                                              intervalos_caudal_bajo_c25, 0))
+                                                              intervalos_caudal_bajo_c25, 1))
         E = E.reset_index(name=f'Error_{i + 0.5}')
         data = data.merge(E, on='INSTALACION', how='left')
     
     # Restore the original 'Clase corregida'
-    data['Clase corregida'] = data['Original Clase Corregida']
+    # data['Clase corregida'] = data['Original Clase Corregida']
+    data['Clase'] = data['Original Clase']
     
     # Optionally, drop the temporary column if no longer needed
-    data.drop(columns=['Original Clase Corregida'], inplace=True)
+    # data.drop(columns=['Original Clase Corregida'], inplace=True)
+    data.drop(columns=['Original Clase'], inplace=True)
     
     # Optionally, reset "Antiguedad ajustada" to the current year after all iterations are complete
     data["Antiguedad ajustada"] = calcular_antiguedad(data["FECHA_MONTAJE"],
@@ -319,8 +324,6 @@ def error(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos
     else:
         group['Decaimiento'] = group.apply(lambda x:x["Año 0"]+ x["Pendiente"]*np.log(x["Antiguedad ajustada"])/100  if x["Intervalo (l/h)"] in intervalos_cb else x["Año 0"] ,axis=1)
         return autocontrol_diametro_alto*(1 - group['% Consumo'].sum())+ sum(group['% Consumo']*group['Decaimiento'])
-    
-
 
 def IyF(data,
         edad_inicial_iyf,
@@ -414,7 +417,7 @@ def armar_curva_proyectada(df):
     # print(df[['DIAMETRO', 'CLASE CORREGIDA', 'new_column']])
     '''
     col_diametro = "DIAMETRO_MEDIDOR"
-    col_clase_corregida = "Clase corregida"
+    col_clase_corregida = "Clase"
     col_salida = 'Curva proy'
     # Define conditions
     conditions = [
