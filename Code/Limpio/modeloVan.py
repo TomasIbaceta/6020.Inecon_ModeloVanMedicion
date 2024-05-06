@@ -25,6 +25,7 @@ class VanCalculator:
         self.get_flujo_diameter_table()
         self.merge_tarifa()
         self.calculate_vsub()
+        print("CALCULATE_VSUB_PROY")
         self.calculate_vsub_proy()
         self.calculate_ingresos()
         self.calculate_C_E()
@@ -64,14 +65,14 @@ class VanCalculator:
         df = self.dfs[sheet_name]
         # Initial V_sub 1 calculation as before
         consumo_promedio = df["CONSUMO PROMEDIO"]
-        df["V_sub_1"] = (-1 * consumo_promedio * df["Error_1"] / (1 + df["Error_1"]))
+        df["V_sub_1"] = (-1 * consumo_promedio * df["Error"] / (1 + df["Error"]))
+        # df["V_sub_1"] = (-1 * consumo_promedio * df["Error_1"] / (1 + df["Error_1"]))
     
         # Calculate V_sub 2 to V_sub 15
         for i in range(2, 16):  # 2 to 15 inclusive
-            previous_vsub = df[f"V_sub_{i-1}"]
             error_column = f"Error_{i-1}"  # Assumes Error_1 for V_sub 2, Error_2 for V_sub 3, and so on
             if error_column in df.columns:
-                df[f"V_sub_{i}"] = -1 * (consumo_promedio + previous_vsub) * df[error_column]
+                df[f"V_sub_{i}"] = -1 * (consumo_promedio + df["V_sub_1"]) * df[error_column]
             else:
                 # Handle the case where an expected Error_x column is missing
                 print(f"Warning: Missing {error_column} in dataframe. Cannot calculate V_sub {i}.")
@@ -86,7 +87,7 @@ class VanCalculator:
         antiguedadCol = 'Antiguedad ajustada'
         
         for x in range(1, 16):
-            error_column = f'Error_{x}.5'  # Error_x.5 column for each x
+            error_column = f'Error_{x-1}.5'  # Error_x.5 column for each x
             v_sub_x = f'V_sub_{x}'  # V_sub(x) column for each x
             v_sub_proy = f'V_sub_proy_{x}'  # V_sub_proy(x) result column for each x
             
@@ -292,7 +293,7 @@ class VanCalculator:
             main_df[base_col] = main_df[[depr_col, c_e_col, ingreso_col]].sum(axis=1)
             main_df[base_col].fillna(0, inplace=True)
             
-        for i in range(5, 16):
+        for i in range(5, 15):
             base_col = f'base_A {i}'
             c_e_col = f'C_E_{i}'
             ingreso_col = f'Ingresos_{i}'
@@ -302,6 +303,17 @@ class VanCalculator:
             # Correct the list of columns for summation
             main_df[base_col] = main_df[[c_e_col, ingreso_col]].sum(axis=1)
             main_df[base_col].fillna(0, inplace=True)
+            
+        #para la base 15, también se suma la depr (como si se reinstalara uno nuevo y se vendiera el viejo)
+        i = 15
+        base_col = f'base_A {i}'
+        c_e_col = f'C_E_{i}'
+        ingreso_col = f'Ingresos_{i}'
+        depr_col = f'Depr 1'
+        main_df = validate_numeric_columns(main_df, [depr_col, c_e_col, ingreso_col])
+        # Correct the list of columns for summation
+        main_df[base_col] = main_df[[depr_col, c_e_col, ingreso_col]].sum(axis=1)
+        main_df[base_col].fillna(0, inplace=True)
         
         self.dfs[main_sheet_name] = main_df
         
@@ -393,12 +405,23 @@ class VanCalculator:
         flujo_cols = [f'{flujo_col} {i}' for i in range(1, 16)]  # Adjust range if necessary
         inversion_col = 'Inversion'
         van_col = 'VAN'
+        van_col_aux = 'VAN_AUX'
+                
+        # Calculate NPV manually (numpy_f is failing us)
+        main_df[van_col_aux] = main_df.apply(lambda row: sum(
+            [row[col] / ((1 + rate) ** (i + 1)) for i, col in enumerate(flujo_cols)]
+        ), axis=1)
+        
     
-        # Calculate NPV for each row
-        main_df[van_col] = main_df.apply(
-            lambda row: npf.npv(rate, [-row[inversion_col]] + row[flujo_cols].tolist()),
-            axis=1
-        )
+        # # Calculate NPV for each row
+        # main_df[van_col_aux] = main_df.apply(
+        #     lambda row: npf.npv(rate,row[flujo_cols].tolist()),
+        #     axis=1
+        # )
+                
+        #agregar la inversion al final
+        
+        main_df[van_col] = main_df[van_col_aux] + main_df[inversion_col]
     
         # Handle any errors by replacing non-numeric results with 0
         main_df[van_col] = pd.to_numeric(main_df[van_col], errors='coerce').fillna(0)

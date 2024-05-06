@@ -114,7 +114,8 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
     data = data.merge(E, on='INSTALACION', how='left')
     
     # Iterate through 1 to 15 years into the future using Clase corregida
-    for i in range(1, 16):
+    for i in range(1, 16): 
+        
         data["Antiguedad ajustada"] = data["FECHA_MONTAJE"].apply(
             lambda fecha_montaje: calcular_antiguedad(
                 fecha_montaje,
@@ -139,11 +140,22 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
     # Replace 'Clase corregida' with 'Curva proy' to calculate Error_0.5 and subsequent errors
     # data['Clase corregida'] = data['Curva proy']
     
+    #"Antiguedad ajustada" partiendo en 0.5 to the current year after all iterations are complete
+    data["Antiguedad ajustada"] = calcular_antiguedad(fecha_estudio,
+                                                      fecha_estudio=fecha_estudio + pd.DateOffset(months=6), 
+                                                      edad_extra=edad_extra_decaimiento, 
+                                                      edad_minima=edad_minima_decaimiento,
+                                                      edad_maxima=edad_maxima_decaimiento)
+        
     data['Original Clase'] = data['Clase']
+    data.drop(['Clase'], axis=1, inplace=True)
     data['Clase'] = data['Curva proy']
     
+    data['Original Grupo'] = data['Grupo']
+    data.drop(['Grupo'], axis=1, inplace=True)
+    data['Grupo'] = data['Curva proy']
+    
     # Calculate Error_0.5 using 'Curva proy'
-    #chipi chipi
     E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
             .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
             .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
@@ -153,11 +165,18 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
     data = data.merge(E, on='INSTALACION', how='left')
     
     # Calculate Error_1.5 to Error_15.5 using Curva proy
-    for i in range(1, 16):
+    for col_sufix in range(1, 16):
+        if(col_sufix == 14 ): #excel tiene nota diciendo que se reponen al año 14.
+            i=0
+        elif (col_sufix == 15):
+            i=1
+        else:
+            i=col_sufix
+            
         data["Antiguedad ajustada"] = data["FECHA_MONTAJE"].apply(
             lambda fecha_montaje: calcular_antiguedad(
-                fecha_montaje,
-                fecha_estudio + pd.DateOffset(years=i),
+                fecha_estudio,
+                fecha_estudio + pd.DateOffset(years=i) + pd.DateOffset(months=6),
                 edad_extra=edad_extra_decaimiento,
                 edad_minima=edad_minima_decaimiento,
                 edad_maxima=edad_maxima_decaimiento
@@ -169,16 +188,18 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
                 .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
                                                               error_ultra, intervalos_caudal_bajo, 
                                                               intervalos_caudal_bajo_c25, 1))
-        E = E.reset_index(name=f'Error_{i + 0.5}')
+        E = E.reset_index(name=f'Error_{col_sufix + 0.5}')
         data = data.merge(E, on='INSTALACION', how='left')
     
     # Restore the original 'Clase corregida'
     # data['Clase corregida'] = data['Original Clase Corregida']
     data['Clase'] = data['Original Clase']
+    data['Grupo'] = data['Original Grupo']
     
     # Optionally, drop the temporary column if no longer needed
     # data.drop(columns=['Original Clase Corregida'], inplace=True)
     data.drop(columns=['Original Clase'], inplace=True)
+    data.drop(columns=['Original Grupo'], inplace=True)
     
     # Optionally, reset "Antiguedad ajustada" to the current year after all iterations are complete
     data["Antiguedad ajustada"] = calcular_antiguedad(data["FECHA_MONTAJE"],

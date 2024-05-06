@@ -99,6 +99,7 @@ class BulkExcelLoader:
 
            # Run the VanCalculator methods
            self.van_calc.run_all()
+           
 
            # Ensure the output directory exists
            output_dir = os.path.dirname(self.get_output_filepath(filename))

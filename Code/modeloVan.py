@@ -89,10 +89,11 @@ class VanCalculator:
         curvaCol = 'Clase corregida'
         antiguedadCol = 'Antiguedad ajustada'
         
-        for x in range(1, 16):
+        for x in range(0, 15):
             error_column = f'Error_{x}.5'  # Error_x.5 column for each x
-            v_sub_x = f'V_sub_{x}'  # V_sub(x) column for each x
-            v_sub_proy = f'V_sub_proy_{x}'  # V_sub_proy(x) result column for each x
+            v_sub_x = f'V_sub_{x+1}'  # V_sub(x) column for each x
+            v_sub_proy = f'V_sub_proy_{x+1}'  # V_sub_proy(x) result column for each x
+            
             
             # Apply the logic
             df[v_sub_proy] = df.apply(
@@ -417,26 +418,26 @@ class VanCalculator:
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
         print(f"Dataframe(s) exported successfully to {filename_out}")
 
-if __name__ == "__main__":
-    folder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\Code"
-    filename_in = r"PETORCA-Processed_MM.xlsx"
-    filename_param = r"VAN_Parametros.xlsx"
+# if __name__ == "__main__":
+#     folder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\Code"
+#     filename_in = r"PETORCA-Processed_MM.xlsx"
+#     filename_param = r"VAN_Parametros.xlsx"
     
-    excel_path = f"{folder}\\{filename_in}"
-    param_path = f"{folder}\\{filename_param}"
+#     excel_path = f"{folder}\\{filename_in}"
+#     param_path = f"{folder}\\{filename_param}"
     
-    filename_out = r"PETORCA-OUTPUT.xlsx"
+#     filename_out = r"PETORCA-OUTPUT.xlsx"
 
-    # Initialize the class without loading any DataFrames
-    van_calc = VanCalculator()
+#     # Initialize the class without loading any DataFrames
+#     van_calc = VanCalculator()
 
-    # Load the main DataFrame(s) and parameters
-    van_calc.load_df_from_excel(excel_path)
-    van_calc.load_parameters(param_path)
+#     # Load the main DataFrame(s) and parameters
+#     van_calc.load_df_from_excel(excel_path)
+#     van_calc.load_parameters(param_path)
 
-    # Perform your operations
-    van_calc.run_all()
+#     # Perform your operations
+#     van_calc.run_all()
 
-    # Export the result to an output Excel file
-    van_calc.export_to_excel(filename_out)
+#     # Export the result to an output Excel file
+#     van_calc.export_to_excel(filename_out)
 
