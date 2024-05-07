@@ -8,24 +8,36 @@ def validate_numeric_columns(df, column_names):
         df[col_name].fillna(0, inplace=True)
     return df
 
-
 class VanCalculator:
     def __init__(self):
         # Start with empty attributes
         self.dfs = {}
-        self.parameters = {}
         self.excel_path = None
+        self.params = None
 
     def load_df_from_excel(self, excel_path):
         # Load the main DataFrame(s) from the specified Excel path
         self.excel_path = excel_path
         self.dfs = pd.read_excel(excel_path, sheet_name=None)  # Dictionary of DataFrames
-
+        
+    def get_global_params_default(self):
+        return {
+            'Impuesto': 0.27,  # Default tax rate
+            'Tarifa': 0.07      # Default discount rate
+        }
+    
+    def get_global_params_from_df(self):
+        try:
+            data = self.dfs["PARAMETROS GLOBALES"]
+            self.params = pd.Series(data['Valor'].values, index=data['Nombre']).to_dict()
+        except:
+            self.params=self.get_default_params()
+        
     def run_all(self):
+        self.get_global_params_from_df()
         self.get_flujo_diameter_table()
         self.merge_tarifa()
         self.calculate_vsub()
-        print("CALCULATE_VSUB_PROY")
         self.calculate_vsub_proy()
         self.calculate_ingresos()
         self.calculate_C_E()
@@ -34,9 +46,9 @@ class VanCalculator:
         self.calculate_valor_restante()
         self.calculate_base_A()
         self.calculate_base_B()
-        self.calculate_impuesto()
+        self.calculate_impuesto( tax_rate=self.params['Impuesto'] )
         self.calculate_flujo()
-        self.calculate_van()
+        self.calculate_van( rate=self.params['Tarifa'])
         self.general_cleanup()
         
     # Assuming 'datos_df' has been loaded from the 'Datos' sheet
@@ -338,9 +350,8 @@ class VanCalculator:
         # Update the DataFrame in your dictionary
         self.dfs[main_sheet_name] = main_df
         
-    def calculate_impuesto(self, main_sheet_name="BBDD - Error Actual"):
+    def calculate_impuesto(self, main_sheet_name="BBDD - Error Actual", tax_rate=0.27):
         main_df = self.dfs[main_sheet_name]
-        tax_rate = 0.27  # 27% tax rate
     
         # Prepare a new DataFrame to hold the impuesto calculations
         impuesto_data = {}
@@ -446,13 +457,13 @@ class VanCalculator:
         print(f"Dataframe(s) exported successfully to {filename_out}")
 
 if __name__ == "__main__":
-    folder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\Code"
-    filename_in = r"PETORCA-Processed_MM.xlsx"
+    folder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels\preprocessed"
+    filename_in = r"preprocessed_mm_modelo MM - TALCA 28.12_v4.xlsx"
     
     excel_path = f"{folder}\\{filename_in}"
     # param_path = f"{folder}\\{filename_param}"
     
-    filename_out = r"PETORCA-OUTPUT.xlsx"
+    filename_out = r"OUTPUT.xlsx"
 
     # Initialize the class without loading any DataFrames
     van_calc = VanCalculator()

@@ -16,8 +16,12 @@ def mm_calc_run_alg_all(exceldata):
     # Initialize lists to hold combined results for each sheet
     combined_results = {}
     
-    # Add 'FLUJO E1' and 'Datos_Tarifas' sheets to the combined results
-    for special_sheet in ['FLUJO E1', 'Datos_Tarifas']:
+    # We need certain sheets to go straight through to the excel for use further
+    # down the pipeline.
+    
+    passthrough_sheets = ['FLUJO E1', 'Datos_Tarifas', 'PARAMETROS GLOBALES']
+    
+    for special_sheet in passthrough_sheets:
         # Check if the sheet exists in the original exceldata
         if special_sheet in exceldata:
             combined_results[special_sheet] = exceldata[special_sheet]
@@ -493,7 +497,7 @@ def read_parameters_from_excel_old(exceldata, sheet_name='PARAMETROS'):
     
     return parametros_localidad
 
-def read_parameters_from_excel(exceldata, localidad, sheet_name='PARAMETROS_NEO'):
+def read_parameters_from_excel(exceldata, localidad, sheet_name='PARAMETROS POR LOCALIDAD'):
     # Get the data from the specified sheet
     df_params = exceldata[sheet_name]
     
@@ -520,7 +524,7 @@ def read_parameters_from_excel(exceldata, localidad, sheet_name='PARAMETROS_NEO'
     
     return parametros_localidad
 
-def get_localidades_from_excel(exceldata, sheet_name='PARAMETROS_NEO'):
+def get_localidades_from_excel(exceldata, sheet_name='PARAMETROS POR LOCALIDAD'):
     # Get the data from the specified sheet
     df_params = exceldata[sheet_name]
     
