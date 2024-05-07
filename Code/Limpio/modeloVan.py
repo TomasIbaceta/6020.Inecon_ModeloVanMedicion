@@ -20,21 +20,25 @@ class VanCalculator:
         self.excel_path = excel_path
         self.dfs = pd.read_excel(excel_path, sheet_name=None)  # Dictionary of DataFrames
         
+    def get_global_params(self):
+        return self.params
+    
     def get_global_params_default(self):
         return {
             'Impuesto': 0.27,  # Default tax rate
             'Tarifa': 0.07      # Default discount rate
         }
     
-    def get_global_params_from_df(self):
+    def set_global_params_from_df(self):
         try:
             data = self.dfs["PARAMETROS GLOBALES"]
             self.params = pd.Series(data['Valor'].values, index=data['Nombre']).to_dict()
         except:
             self.params=self.get_default_params()
-        
+            
     def run_all(self):
-        self.get_global_params_from_df()
+        self.set_global_params_from_df()
+        
         self.get_flujo_diameter_table()
         self.merge_tarifa()
         self.calculate_vsub()
