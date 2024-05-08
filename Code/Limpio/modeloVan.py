@@ -98,21 +98,32 @@ class VanCalculator:
     def calculate_vsub_proy(self, sheet_name="BBDD - Error Actual"):
         df = self.dfs[sheet_name]
         consumoPromedioCol = 'CONSUMO PROMEDIO'
-        curvaProyectadaCol = 'Curva proy'
-        curvaCol = 'Clase corregida'
-        antiguedadCol = 'Antiguedad ajustada'
+        curvaProyectadaCol = 'Curva proy' 
+        curvaCol = 'Clase corregida' 
+        grupoCol = 'Grupo'
+        antiguedadCol = 'Antiguedad ajustada' 
         
         for x in range(1, 16):
             error_column = f'Error_{x-1}.5'  # Error_x.5 column for each x
             v_sub_x = f'V_sub_{x}'  # V_sub(x) column for each x
             v_sub_proy = f'V_sub_proy_{x}'  # V_sub_proy(x) result column for each x
+            v_sub_proy_dadovuelta = f'V_sub_{x-14}'
             
+
             # Apply the logic
             df[v_sub_proy] = df.apply(
-                lambda row: row[v_sub_x] if (row[curvaProyectadaCol] == row[curvaCol] and row[antiguedadCol] == 0.5)
+                lambda row: row[v_sub_x] if ( row[curvaProyectadaCol] == row[grupoCol] and row[antiguedadCol] == 0.5 ) 
                 else -row[consumoPromedioCol] * row[error_column] / (1 + row[error_column]),
                 axis=1
             )
+            
+            #caso especial dado vuelta despues de los 14
+            df[v_sub_proy] = df.apply(
+                lambda row: row[v_sub_proy_dadovuelta] if ( row[curvaProyectadaCol] == row[grupoCol] and row[antiguedadCol] == 0.5 and x==15) 
+                else row[v_sub_proy],
+                axis=1
+            )
+            
             # Handling errors
             df[v_sub_proy] = pd.to_numeric(df[v_sub_proy], errors='coerce').fillna('')
             
@@ -398,7 +409,7 @@ class VanCalculator:
             flujo_data[flujo_col] = main_df[[ingresos_col, C_e_col, impuesto_col]].sum(axis=1)
             if (i == 14):
                 flujo_data[flujo_col] = flujo_data[flujo_col] + main_df[inversion_col]
-            if (i== 15):
+            if (i == 15):
                 flujo_data[flujo_col] = flujo_data[flujo_col] + main_df[valor_res_col]
             
             flujo_data[flujo_col] = pd.to_numeric(flujo_data[flujo_col], errors='coerce').fillna('')
