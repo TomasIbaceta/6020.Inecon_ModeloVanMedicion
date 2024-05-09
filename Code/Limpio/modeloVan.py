@@ -2,6 +2,10 @@ import pandas as pd
 import numpy as np
 import numpy_financial as npf
 
+from config import AppConfig
+
+config = AppConfig()
+
 def validate_numeric_columns(df, column_names):
     for col_name in column_names:
         df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
@@ -14,6 +18,8 @@ class VanCalculator:
         self.dfs = {}
         self.excel_path = None
         self.params = None
+        self.sheets_config = None
+        
 
     def load_df_from_excel(self, excel_path):
         # Load the main DataFrame(s) from the specified Excel path
@@ -24,10 +30,7 @@ class VanCalculator:
         return self.params
     
     def get_global_params_default(self):
-        return {
-            'Impuesto': 0.27,  # Default tax rate
-            'Tarifa': 0.07      # Default discount rate
-        }
+        return config.global_params_default
     
     def set_global_params_from_df(self):
         try:
@@ -454,15 +457,20 @@ class VanCalculator:
     
         # Update the DataFrame in your dictionary
         self.dfs[main_sheet_name] = main_df
-        
+            
     def general_cleanup(self):
         # List the sheet names to remove
-        sheets_to_remove = ['FLUJO E1', 'Datos_Tarifas']
 
         # Remove each specified sheet from self.dfs if it exists
-        for sheet_name in sheets_to_remove:
-            if sheet_name in self.dfs:
-                del self.dfs[sheet_name]
+        if config.remove_sheets:
+            self.dfs = {sheet_name: df for sheet_name, df in self.dfs.items() if sheet_name in self.config.sheets_to_keep}
+
+        # Check sheets_config and adjust columns of DataFrames
+        if config.reorder_columns:
+            for sheet_name, columns in config.sheets_config.items():
+                if sheet_name in self.dfs:
+                    # Reorder and select only the columns listed in sheets_config if they exist in the DataFrame
+                    self.dfs[sheet_name] = self.dfs[sheet_name][[col for col in columns if col in self.dfs[sheet_name].columns]]
 
     def export_to_excel(self, filename_out):
         # Using XlsxWriter as the engine

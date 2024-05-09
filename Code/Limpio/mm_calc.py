@@ -444,11 +444,13 @@ def armar_curva_proyectada(df):
     col_diametro = "DIAMETRO_MEDIDOR"
     col_clase_corregida = "Clase"
     col_salida = 'Curva proy'
+    
     # Define conditions
     conditions = [
         (df[col_clase_corregida] == "ULTRA"),
         df[col_diametro] == 25,
         df[col_diametro] < 25,
+        df[col_diametro] > 25,
     ]
     
     # Define corresponding choices
@@ -456,6 +458,8 @@ def armar_curva_proyectada(df):
         "ULTRA",
         "ULTRA",  
         "C-" + df[col_diametro].astype(str),
+        # df["Grupo"].astype(str) #este sería ultra?
+        "ULTRA",
     ]
     
     # Apply the select function
