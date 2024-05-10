@@ -28,6 +28,11 @@ def mm_calc_run_alg_all(exceldata):
     
     # Iterate through all localities and process them
     for localidad in localidades:
+        
+        localidades_necesarias=get_localidades_in_DATOS(exceldata)
+        if localidad not in localidades_necesarias:
+            continue
+        
         # Read parameters for the current locality
         parameters = read_parameters_from_excel(exceldata, localidad)
         
@@ -45,6 +50,10 @@ def mm_calc_run_alg_all(exceldata):
     
     return combined_results
 
+def get_localidades_in_DATOS(exceldata):
+    data_completa =exceldata["DATOS"]
+    return data_completa["LOCALIDAD"].unique().tolist()
+    
 def mm_calc_run_alg(exceldata, parametros_localidad):
     data_completa =exceldata["DATOS"]
     df_clases =exceldata["CLASES"]

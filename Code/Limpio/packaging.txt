@@ -9,6 +9,6 @@ main.py
 
 or
 
-pyinstaller --onefile --windowed --distpath ../dist --workpath ../build --add-data "C:/ProgramData/Anaconda3/Lib/site-packages/pandas;pandas" --add-data "C:/ProgramData/Anaconda3/Lib/site-packages/numpy;numpy" --add-data "C:/ProgramData/Anaconda3/Lib/site-packages/numpy_financial;numpy_financial" --add-data "C:/ProgramData/Anaconda3/Lib/site-packages/openpyxl;openpyxl" --add-data "C:/ProgramData/Anaconda3/Lib/site-packages/xlsxwriter;xlsxwriter" main.py
+pyinstaller --onefile --windowed --distpath ../dist --workpath ../build --add-data "C:/Users/toman/anaconda3/Lib/site-packages/pandas;pandas" --add-data "C:/Users/toman/anaconda3/Lib/site-packages/numpy;numpy" --add-data "C:/Users/toman/anaconda3/Lib/site-packages/numpy_financial;numpy_financial" --add-data "C:/Users/toman/anaconda3/Lib/site-packages/openpyxl;openpyxl" --add-data "C:/Users/toman/anaconda3/Lib/site-packages/xlsxwriter;xlsxwriter" main.py
 
 

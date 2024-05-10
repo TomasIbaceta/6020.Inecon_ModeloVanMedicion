@@ -106,7 +106,7 @@ class BulkExcelLoader:
            os.makedirs(output_dir, exist_ok=True)
            
            # Export the results to a new Excel file
-           output_path = self.get_output_filepath(filename+".xlsx")
+           output_path = self.get_output_filepath(filename)
            self.van_calc.export_to_excel(output_path)
 
            print(f"Algorithm ran successfully on {filename}. Output saved to {output_path}.")

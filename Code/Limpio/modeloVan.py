@@ -12,14 +12,19 @@ def validate_numeric_columns(df, column_names):
         df[col_name].fillna(0, inplace=True)
     return df
 
+def check_rollover_conditions(row, i, inversion_col, valor_res_col):
+    if i == 14 or i == 15:
+        condition = (row['DIAMETRO_MEDIDOR'] >= 38) and (row['Curva proy'] == 'ULTRA')
+        if condition:
+            print(f'No rollover applied for Instalacion {row["INSTALACION"]}: Diametro: {row["DIAMETRO_MEDIDOR"]}, curva_proy: {row["Curva proy"]}')
+    return row
+
 class VanCalculator:
     def __init__(self):
         # Start with empty attributes
         self.dfs = {}
         self.excel_path = None
-        self.params = None
-        self.sheets_config = None
-        
+        self.params = None        
 
     def load_df_from_excel(self, excel_path):
         # Load the main DataFrame(s) from the specified Excel path
@@ -323,7 +328,7 @@ class VanCalculator:
             main_df[base_col] = main_df[[depr_col, c_e_col, ingreso_col]].sum(axis=1)
             main_df[base_col].fillna(0, inplace=True)
             
-        for i in range(5, 15):
+        for i in range(5, 16):
             base_col = f'base_A {i}'
             c_e_col = f'C_E_{i}'
             ingreso_col = f'Ingresos_{i}'
@@ -333,16 +338,33 @@ class VanCalculator:
             # Correct the list of columns for summation
             main_df[base_col] = main_df[[c_e_col, ingreso_col]].sum(axis=1)
             main_df[base_col].fillna(0, inplace=True)
-            
+        
         #para la base 15, también se suma la depr (como si se reinstalara uno nuevo y se vendiera el viejo)
+        #excepto si es un ULTRA+38, ahi no se hace nada
+
         i = 15
         base_col = f'base_A {i}'
         c_e_col = f'C_E_{i}'
         ingreso_col = f'Ingresos_{i}'
         depr_col = f'Depr 1'
         main_df = validate_numeric_columns(main_df, [depr_col, c_e_col, ingreso_col])
-        # Correct the list of columns for summation
-        main_df[base_col] = main_df[[depr_col, c_e_col, ingreso_col]].sum(axis=1)
+         
+        # Create condition for ULTRA+38 exclusion
+        condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Curva proy'] != 'ULTRA')
+    
+        main_df[base_col] = np.where(
+            condition,
+            main_df[base_col] + main_df[depr_col],
+            main_df[base_col]
+        )
+        
+        # # Apply condition and adjust base_A 15
+        # main_df[base_col] = np.where(
+        #     condition,
+        #     main_df[[c_e_col, ingreso_col]].sum(axis=1),  # Exclude Depr 1 if condition is True
+        #     main_df[[depr_col, c_e_col, ingreso_col]].sum(axis=1)  # Include Depr 1 if condition is False
+        # )
+        
         main_df[base_col].fillna(0, inplace=True)
         
         self.dfs[main_sheet_name] = main_df
@@ -394,37 +416,71 @@ class VanCalculator:
         # Update the DataFrame in your dictionary
         self.dfs[main_sheet_name] = main_df
         
+    # def calculate_flujo(self, main_sheet_name="BBDD - Error Actual"):
+    #     main_df = self.dfs[main_sheet_name]
+        
+    #     valor_res_col = 'Valor res'
+    #     inversion_col = 'Inversion'
+        
+    #     # Prepare a new DataFrame to hold the impuesto calculations
+    #     flujo_data = {}
+        
+    #     for i in range(1,16):
+    #         ingresos_col = f'Ingresos_{i}'
+    #         C_e_col = f'C_E_{i}'
+    #         impuesto_col = f'impuesto {i}'
+    #         flujo_col = f'Flujo {i}'
+            
+    #         flujo_data[flujo_col] = main_df[[ingresos_col, C_e_col, impuesto_col]].sum(axis=1)
+    #         if (i == 14):
+    #             flujo_data[flujo_col] = flujo_data[flujo_col] + main_df[inversion_col]
+    #         if (i == 15):
+    #             flujo_data[flujo_col] = flujo_data[flujo_col] + main_df[valor_res_col]
+            
+    #         flujo_data[flujo_col] = pd.to_numeric(flujo_data[flujo_col], errors='coerce').fillna('')
+                
+    #     # Convert dictionary to DataFrame
+    #     flujo_df = pd.DataFrame(flujo_data, index=main_df.index)
+        
+    #     # Concatenate with the original DataFrame
+    #     main_df = pd.concat([main_df, flujo_df], axis=1)
+    
+    #     # Update the DataFrame in your dictionary
+    #     self.dfs[main_sheet_name] = main_df        
+    
     def calculate_flujo(self, main_sheet_name="BBDD - Error Actual"):
         main_df = self.dfs[main_sheet_name]
         
         valor_res_col = 'Valor res'
         inversion_col = 'Inversion'
-        
-        # Prepare a new DataFrame to hold the impuesto calculations
+    
+        # Prepare a new dictionary to hold the flujo calculations
         flujo_data = {}
-        
-        for i in range(1,16):
+    
+        for i in range(1, 16):
             ingresos_col = f'Ingresos_{i}'
             C_e_col = f'C_E_{i}'
             impuesto_col = f'impuesto {i}'
             flujo_col = f'Flujo {i}'
-            
-            flujo_data[flujo_col] = main_df[[ingresos_col, C_e_col, impuesto_col]].sum(axis=1)
-            if (i == 14):
-                flujo_data[flujo_col] = flujo_data[flujo_col] + main_df[inversion_col]
-            if (i == 15):
-                flujo_data[flujo_col] = flujo_data[flujo_col] + main_df[valor_res_col]
-            
-            flujo_data[flujo_col] = pd.to_numeric(flujo_data[flujo_col], errors='coerce').fillna('')
-                
-        # Convert dictionary to DataFrame
-        flujo_df = pd.DataFrame(flujo_data, index=main_df.index)
-        
-        # Concatenate with the original DataFrame
-        main_df = pd.concat([main_df, flujo_df], axis=1)
     
-        # Update the DataFrame in your dictionary
-        self.dfs[main_sheet_name] = main_df        
+            # Calculate the flujo sum for this iteration
+            flujo_data[flujo_col] = main_df[[ingresos_col, C_e_col, impuesto_col]].sum(axis=1)
+            print(f"Calculated {flujo_col} sum.")
+    
+            # Apply conditions for rollover
+            if i in [14, 15]:
+                # Check if either condition is true to apply rollover
+                condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Curva proy'] != 'ULTRA')
+                rollover_addition = main_df[inversion_col] if i == 14 else main_df[valor_res_col]
+                flujo_data[flujo_col] += np.where(condition, rollover_addition, 0)
+                main_df.apply(lambda row: check_rollover_conditions(row, i, inversion_col, valor_res_col), axis=1)
+    
+        # Convert dictionary to DataFrame and update the main DataFrame
+        flujo_df = pd.DataFrame(flujo_data, index=main_df.index)
+        main_df = pd.concat([main_df, flujo_df], axis=1)
+        print("Updated main DataFrame with Flujo data.")
+    
+        self.dfs[main_sheet_name] = main_df
 
     def calculate_van(self, main_sheet_name="BBDD - Error Actual", rate=0.07):
         main_df = self.dfs[main_sheet_name]
@@ -435,23 +491,24 @@ class VanCalculator:
         inversion_col = 'Inversion'
         van_col = 'VAN'
         van_col_aux = 'VAN_AUX'
+        
                 
         # Calculate NPV manually (numpy_f is failing us)
         main_df[van_col_aux] = main_df.apply(lambda row: sum(
             [row[col] / ((1 + rate) ** (i + 1)) for i, col in enumerate(flujo_cols)]
         ), axis=1)
-        
-    
-        # # Calculate NPV for each row
-        # main_df[van_col_aux] = main_df.apply(
-        #     lambda row: npf.npv(rate,row[flujo_cols].tolist()),
-        #     axis=1
-        # )
-                
+                        
+        #TODO: confirmar con INECON que la formula esté bien aplicada (instalan un medidor en año 16?)
         #agregar la inversion al final
-        
-        main_df[van_col] = main_df[van_col_aux] + main_df[inversion_col]
+        #... a menos que sea un ultra+38, en ese caso hay tasa de descuento en la inversión
+        condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Curva proy'] != 'ULTRA')
     
+        main_df[van_col] = np.where(
+            condition,
+            main_df[van_col_aux] + main_df[inversion_col],
+            main_df[van_col_aux] + main_df[inversion_col] / ((1 + rate) ** 16),
+        )
+        
         # Handle any errors by replacing non-numeric results with 0
         main_df[van_col] = pd.to_numeric(main_df[van_col], errors='coerce').fillna(0)
     
@@ -463,7 +520,7 @@ class VanCalculator:
 
         # Remove each specified sheet from self.dfs if it exists
         if config.remove_sheets:
-            self.dfs = {sheet_name: df for sheet_name, df in self.dfs.items() if sheet_name in self.config.sheets_to_keep}
+            self.dfs = {sheet_name: df for sheet_name, df in self.dfs.items() if sheet_name in config.sheets_to_keep}
 
         # Check sheets_config and adjust columns of DataFrames
         if config.reorder_columns:
