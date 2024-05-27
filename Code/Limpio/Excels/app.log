@@ -1,12 +1,14 @@
-2024-05-10 13:26:51 - __main__ - INFO - 
+2024-05-13 17:17:21 - __main__ - INFO - 
 ===============
 FORMATO
 app.log: Descartado, formato inválido.
 modelo MM - TALCA 28.12_v5.xlsx: OK
 ~$modelo MM - TALCA 28.12_v4.xlsx: OK
+~$modelo MM - TALCA 28.12_v5.xlsx: OK
 
-2024-05-10 13:27:01 - __main__ - INFO - 
+2024-05-13 17:17:38 - __main__ - INFO - 
 =============
 ALGORITMO
 modelo MM - TALCA 28.12_v5.xlsx: OK.
 ~$modelo MM - TALCA 28.12_v4.xlsx: OK.
+~$modelo MM - TALCA 28.12_v5.xlsx: OK.

@@ -82,7 +82,7 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
     #parametros fijos
     intervalos_caudal_bajo=['8-16','16-32', '32-66' ]
     intervalos_caudal_bajo_c25=['16-32', '32-66' ]
-    medidores_presicion=['R400', 'R800']
+    medidores_presicion=['R400', 'R800'] #TODO: medidores de precision
     diametro_max=38
     error_ultra=-0.02
 
@@ -102,9 +102,24 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
 
     # Obtener variable dicotomica de diametro
     data["Diametro_max"]=data["DIAMETRO_MEDIDOR"]<diametro_max
+    
+    #---------------------------------------------
+    #nota: no dejes nunca de levantar esas Clases de referencia originales
 
     #Generar clase del medidor y grupo en el que pertenece
-    data[["Clase", "Grupo"]]=data.apply(lambda x:  armar_clase(x, diametro_max, medidores_presicion), axis=1,result_type="expand") 
+    data[["Clase_porformula", "Grupo_porformula"]]=data.apply(lambda x:  armar_clase(x, diametro_max, medidores_presicion), axis=1,result_type="expand") 
+    
+    # data["Grupo"] = contruir_grupo([df[f"CLASE"], df[f"DIAMETRO_MEDIDOR"]  ]) #es innecesario despues de los cambios en la generacion de clase, pero se mantiene para no perturbar el resto del programa
+    # df_referenciaClase["Grupo"] = contruir_grupo([df[f"CLASE"], df[f"DIAMETRO_MEDIDOR"]  ])
+    
+    # data=data.merge(df_referenciasClase, on="Grupo", how='left')
+    
+    # data["Clase"] = np.where(pd.isnull(data["Clase"]), data["Clase_porformula"], data["Clase"]   )
+    # data["Grupo"] = np.where(pd.isnull(data["Clase"]), data["Grupo_porformula"], data["Grupo"]   )
+    
+    # drop Clase_porformula, Grupo_porformula
+    
+    #---------------------------------------------
     
     # Initial setup - calculate current adjusted age and error
     data["Antiguedad ajustada"] = calcular_antiguedad(data["FECHA_MONTAJE"],
@@ -123,6 +138,9 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
             .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
                                                           error_ultra, intervalos_caudal_bajo, 
                                                           intervalos_caudal_bajo_c25))
+            
+    #TODO: reemplazar el merge con grupo (ya no es necesario) si no que va a pasar directo con pasar la clase de referencia con su curva de error.
+            
     E = E.reset_index(name='Error')
     data = data.merge(E, on='INSTALACION', how='left')
     

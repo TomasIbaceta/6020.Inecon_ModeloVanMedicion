@@ -1,14 +1,3 @@
-pyinstaller --onefile --windowed \
---distpath ../dist --workpath ../build \
---add-data "C:/Users/toman/anaconda3/envs/myenv/lib/site-packages/openpyxl;openpyxl" \
---add-data "C:/Users/toman/anaconda3/envs/myenv/lib/site-packages/xlsxwriter;xlsxwriter" \
---add-data "path/to/your/ui/files;." \
---hidden-import "numpy_financial" \
-main.py
-
-
-or
-
 pyinstaller --onefile --windowed --distpath ../dist --workpath ../build --add-data "C:/Users/toman/anaconda3/Lib/site-packages/pandas;pandas" --add-data "C:/Users/toman/anaconda3/Lib/site-packages/numpy;numpy" --add-data "C:/Users/toman/anaconda3/Lib/site-packages/numpy_financial;numpy_financial" --add-data "C:/Users/toman/anaconda3/Lib/site-packages/openpyxl;openpyxl" --add-data "C:/Users/toman/anaconda3/Lib/site-packages/xlsxwriter;xlsxwriter" main.py
 
 
