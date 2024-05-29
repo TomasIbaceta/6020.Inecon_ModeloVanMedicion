@@ -2,7 +2,8 @@ import pandas as pd
 from model import BulkExcelLoader
 
 #folder_path es directorio porque carga todos los excels que encuentra
-folder_path = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
+# folder_path = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
+folder_path = r"C:\Users\toman\Downloads\carpeta"
 
 #------ Load the model ----- #
 model = BulkExcelLoader()

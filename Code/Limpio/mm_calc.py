@@ -524,7 +524,7 @@ def read_parameters_from_excel(exceldata, localidad, sheet_name='PARAMETROS POR 
     parametros_localidad = {
         "fecha_estudio": pd.to_datetime(localidad_row['Fecha estudio'].values[0]),
         "localidad": localidad,
-        "sectores": localidad_row['Sector'].dropna().tolist(),
+        "sectores": df_params[df_params['Localidad.1'] == localidad]['Sector'].dropna().tolist(),
         "tipo_error_CAlto": localidad_row['Error caudal alto < 38mm'].values[0],
         "edad_minima_decaimiento": localidad_row['Edad minima decaimiento'].values[0],
         "edad_maxima_decaimiento": localidad_row['Edad máxima decaimiento'].values[0],
