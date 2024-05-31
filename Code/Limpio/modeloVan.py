@@ -24,7 +24,7 @@ class VanCalculator:
         # Start with empty attributes
         self.dfs = {}
         self.excel_path = None
-        self.params = None        
+        self.params = None
 
     def load_df_from_excel(self, excel_path):
         # Load the main DataFrame(s) from the specified Excel path
@@ -44,8 +44,16 @@ class VanCalculator:
         except:
             self.params=self.get_default_params()
             
+    def set_global_params_from_dict(self, scenario: dict):
+        if not scenario:
+            raise ValueError("The provided scenario is empty.")
+        
+        self.params = scenario
+        
+            
     def run_all(self):
-        self.set_global_params_from_df()
+        if not self.params:
+            raise ValueError("Can't run VanCalculator without parameters.")
         
         self.get_flujo_diameter_table()
         self.merge_tarifa()

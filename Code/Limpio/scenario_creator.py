@@ -36,7 +36,27 @@ def create_scenarios(df):
 
     keys, values = zip(*parameters.items())
     scenarios = [dict(zip(keys, v)) for v in product(*values)]
-    return scenarios
+    
+    ordered_scenarios = []
+    #put Escenario number, then reorder
+    for i, scenario in enumerate(scenarios, 1):
+        scenario['Escenario'] = i
+        # Reorder so 'Escenario' is first
+        ordered_scenario = {'Escenario': scenario.pop('Escenario')}
+        ordered_scenario.update(scenario)
+        ordered_scenarios.append(ordered_scenario)
+    
+    print(scenarios_to_string(ordered_scenarios))
+    return ordered_scenarios
+
+def scenarios_to_string(scenarios):
+    text = ""
+    for i, scenario in enumerate(scenarios, 1):
+        scenario['Escenario'] = i
+        # Format the scenario into a string
+        scenario_str = ", ".join(f"{k}: {v}" for k, v in scenario.items())
+        text += f"{scenario_str}\n"
+    return text
 
 # Example dictionary for reference
 example_parameters = {
@@ -47,6 +67,7 @@ example_parameters = {
     "max": ["10%", "30%", "20"],
     "pasos intermedios": [0, None, 1]
 }
+
 if __name__ == "__main__":
     folder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
     filename = r"modelo MM - TALCA 28.12_v5.xlsx"
@@ -54,7 +75,5 @@ if __name__ == "__main__":
     df=pd.read_excel(full_path, sheet_name="PARAMETROS GLOBALES")
     
     scenarios = create_scenarios(df)
-    for i, scenario in enumerate(scenarios, 1):
-        scenario['Escenario'] = i
-    print(scenarios)
+    print(scenarios_to_string(scenarios))
     

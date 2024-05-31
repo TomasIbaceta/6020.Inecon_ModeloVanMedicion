@@ -5,6 +5,7 @@ import sys
 
 from mm_calc import *
 from modeloVan import *
+from scenario_creator import *
 
 class BulkExcelLoader:
     def __init__(self):
@@ -38,13 +39,15 @@ class BulkExcelLoader:
                 output += f"{filename}: Descartado, formato inválido.\n"
         return output
         
-    def get_preprocessed_filepath(self, filename):
-        return f"{self.folderName}\\preprocessed\\preprocessed_mm_{filename}"
+    def get_preprocessed_filepath(self, filename, scenario):
+        filename = filename.split(".xlsx")[0]
+        return f"{self.folderName}\\preprocessed\\preprocessed_mm_{filename} - E{scenario['Escenario']}.xlsx"
     
-    def get_output_filepath(self, filename):
+    def get_output_filepath(self, filename, scenario_number:int):
         # Ensure the correct extension for the output file
-        filename = filename if filename.endswith('.xlsx') else f"{filename}.xlsx"
-        return f"{self.folderName}\\output\\output_{filename}"
+        # filename = filename if filename.endswith('.xlsx') else f"{filename}.xlsx"
+        filename_no_ext = filename.split(".xlsx")[0] if filename.endswith('.xlsx') else filename
+        return f"{self.folderName}\\output\\output_{filename_no_ext} - E{scenario_number}.xlsx"
 
     def get_valid_filenames(self):
         return self.valid_filename_list
@@ -66,47 +69,55 @@ class BulkExcelLoader:
 
         return filenameList
     
-    def run_preprocessor_on_filename(self, filename):
+    def run_preprocessor_on_filename(self, filename, scenario:dict):
         try:
             df = pd.read_excel(f"{self.folderName}\\{filename}", sheet_name=None)
-            output = mm_calc_run_alg_all(df)
+            output = mm_calc_run_alg_all(df, scenario)
             
             # Ensure the output directory exists
-            output_dir = os.path.dirname(self.get_preprocessed_filepath(filename))
+            output_dir = os.path.dirname(self.get_preprocessed_filepath(filename, scenario))
             os.makedirs(output_dir, exist_ok=True)
         
-            with pd.ExcelWriter(self.get_preprocessed_filepath(filename), engine='xlsxwriter') as writer:
+            with pd.ExcelWriter(self.get_preprocessed_filepath(filename, scenario), engine='xlsxwriter') as writer:
                 for sheet_name, df in output.items():
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
         except Exception as e:
             raise ValueError(f"run failed on filename {filename}: {e}")
             
-    def run_algorithm_on_filename(self, filename):
+    def run_algo_allScenarios(self, filename:str):
+        if os.path.basename(filename).startswith('~$'):
+            print(f"Skipping temporary or system file: {filename}")
+            return
+        
+        scenarios_df=pd.read_excel(f"{self.folderName}\{filename}", sheet_name="PARAMETROS GLOBALES")
+        scenarios = create_scenarios(scenarios_df)
+        
+        for scenario in scenarios:
+            self.run_algorithm_on_filename(filename, scenario)
+            
+        
+    def run_algorithm_on_filename(self, filename, scenario:dict):
        try:
-           if os.path.basename(filename).startswith('~$'):
-               print(f"Skipping temporary or system file: {filename}")
-               return
-           
            # Run the preprocessor first
-           self.run_preprocessor_on_filename(filename)
+           self.run_preprocessor_on_filename(filename, scenario)
            
            # Get the preprocessed file path
-           preprocessed_filename = self.get_preprocessed_filepath(filename)
+           preprocessed_filename = self.get_preprocessed_filepath(filename, scenario)
 
            # Initialize a VanCalculator on the preprocessed Excel file
            self.van_calc = VanCalculator()
            self.van_calc.load_df_from_excel(preprocessed_filename)
+           self.van_calc.set_global_params_from_dict(scenario)
 
            # Run the VanCalculator methods
            self.van_calc.run_all()
-           
 
            # Ensure the output directory exists
-           output_dir = os.path.dirname(self.get_output_filepath(filename))
+           output_dir = os.path.dirname(self.get_output_filepath(filename, scenario['Escenario']))
            os.makedirs(output_dir, exist_ok=True)
            
            # Export the results to a new Excel file
-           output_path = self.get_output_filepath(filename)
+           output_path = self.get_output_filepath(filename, scenario['Escenario'])
            self.van_calc.export_to_excel(output_path)
 
            print(f"Algorithm ran successfully on {filename}. Output saved to {output_path}.")

@@ -9,7 +9,7 @@ direccion_excel_salida = "ANY-Processed_MM.xlsx"
 import pandas as pd
 import numpy as np
 
-def mm_calc_run_alg_all(exceldata):
+def mm_calc_run_alg_all(exceldata, scenario:dict):
     # Retrieve all localities
     localidades = get_localidades_from_excel(exceldata)
     
@@ -37,7 +37,7 @@ def mm_calc_run_alg_all(exceldata):
         parameters = read_parameters_from_excel(exceldata, localidad)
         
         # Run the main algorithm with the current parameters
-        output = mm_calc_run_alg(exceldata, parameters)
+        output = mm_calc_run_alg(exceldata, parameters, scenario)
         
         # Concatenate each output into the combined_results dictionary
         for sheet_name, df in output.items():
@@ -54,7 +54,15 @@ def get_localidades_in_DATOS(exceldata):
     data_completa =exceldata["DATOS"]
     return data_completa["LOCALIDAD"].unique().tolist()
     
-def mm_calc_run_alg(exceldata, parametros_localidad):
+def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
+    
+    #load global params from scenario
+    try:
+        diametro_max = scenario["Diametro Max"]
+        error_ultra = scenario["Error Ultra"]
+    except:
+        raise ValueError("invalid Scenario")
+    
     data_completa =exceldata["DATOS"]
     df_clases =exceldata["CLASES"]
     df_edad =exceldata["EDAD"]
@@ -83,8 +91,6 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
     intervalos_caudal_bajo=['8-16','16-32', '32-66' ]
     intervalos_caudal_bajo_c25=['16-32', '32-66' ]
     medidores_presicion=['R400', 'R800']
-    diametro_max=38
-    error_ultra=-0.02
 
     #selecccionar datos
     data = data_completa.loc[(data_completa["LOCALIDAD"]== localidad) & (data_completa["SECTOR AP"].isin(sectores))] 
