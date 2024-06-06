@@ -19,7 +19,7 @@ def mm_calc_run_alg_all(exceldata, scenario:dict):
     # We need certain sheets to go straight through to the excel for use further
     # down the pipeline.
     
-    passthrough_sheets = ['FLUJO E1', 'Datos_Tarifas', 'PARAMETROS GLOBALES']
+    passthrough_sheets = ['FLUJO E1', 'Datos_Tarifas', 'PARAMETROS GLOBALES', 'MANEJO DE ESCENARIOS']
     
     for special_sheet in passthrough_sheets:
         # Check if the sheet exists in the original exceldata
