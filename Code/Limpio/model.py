@@ -83,18 +83,29 @@ class BulkExcelLoader:
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
         except Exception as e:
             raise ValueError(f"run failed on filename {filename}: {e}")
-            
+                    
     def run_algo_allScenarios(self, filename:str):
         if os.path.basename(filename).startswith('~$'):
-            print(f"Skipping temporary or system file: {filename}")
+            # print(f"Skipping temporary or system file: {filename}")
             return
+        scenarios = self.get_scenarios(filename)
         
-        scenarios_df=pd.read_excel(f"{self.folderName}\{filename}", sheet_name="PARAMETROS GLOBALES")
-        scenarios = create_scenarios(scenarios_df)
+        output_dir = f"{self.folderName}\output"
+        scenarios_filename = f"{filename.split('.xlsx')[0]}.txt" 
+        print_scenarios_to_file(f"{output_dir}\{scenarios_filename}", scenarios)
         
         for scenario in scenarios:
             self.run_algorithm_on_filename(filename, scenario)
             
+        
+    def get_scenarios(self, filename):
+        scenarios_df=pd.read_excel(f"{self.folderName}\{filename}", sheet_name="PARAMETROS GLOBALES")
+        scenarios = create_scenarios(scenarios_df)
+        return scenarios
+    
+    def get_output_directory(self, filename):
+        output_dir = os.path.dirname(self.get_output_filepath(filename, scenario['Escenario']))
+        return output_dir
         
     def run_algorithm_on_filename(self, filename, scenario:dict):
        try:
@@ -121,6 +132,7 @@ class BulkExcelLoader:
            self.van_calc.export_to_excel(output_path)
 
            print(f"Algorithm ran successfully on {filename}. Output saved to {output_path}.")
+           return output_dir
 
        except Exception as e:
            raise RuntimeError(f"Failed to run algorithm on {filename}: {str(e)}")

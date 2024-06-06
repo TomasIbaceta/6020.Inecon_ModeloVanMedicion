@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
 import sys
 import os
 from model import BulkExcelLoader
-
+from scenario_creator import *
 import logging
 
 # Basic logger setup without a file handler
@@ -130,7 +130,6 @@ class Worker(QObject):
         for i, filename in enumerate(filename_list):
             self.progress_signal.emit(i+1, valid)
             try:
-                # self.model.run_algorithm_on_filename(filename)
                 self.model.run_algo_allScenarios(filename)
                 output_str+=(f"\n{filename}: OK.")
             except Exception as e:

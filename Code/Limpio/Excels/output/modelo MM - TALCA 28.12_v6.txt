@@ -1,0 +1,1 @@
+Escenario: 1, Tarifa: 0.07, Impuesto: 0.27, Error Ultra: -0.02, Diametro Max: 38.0

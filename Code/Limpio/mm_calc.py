@@ -68,7 +68,7 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
     df_edad =exceldata["EDAD"]
     df_caudal =exceldata["CAUDAL MODIFICADO"]
     df_caudal_original =exceldata["CAUDAL ORIGINAL"]
-    df_params =exceldata["PARAMETROS"]
+    # df_params =exceldata["PARAMETROS"]
     df_autocontrol =exceldata["PROGRAMA AUTOCONTROL"]
     df_porc_caudal_para_pendiente=exceldata["PORC CAUDAL PENDIENTE"]
     df_clase_grupo_decaimiento=exceldata["REFERENCIA CLASES DECAIMIENTO"]

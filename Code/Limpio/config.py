@@ -21,7 +21,7 @@ class AppConfig:
         self.reorder_columns = True
         self.remove_sheets = True
         
-        self.sheets_to_keep = ['BBDD - Error Actual', 'Resultados loc', 'Inicial y final']
+        self.sheets_to_keep = ['BBDD - Error Actual', 'Resultados loc', 'Inicial y final', 'RESUMEN E1']
         
         
         self.sheets_config = {

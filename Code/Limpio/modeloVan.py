@@ -16,7 +16,8 @@ def check_rollover_conditions(row, i, inversion_col, valor_res_col):
     if i == 14 or i == 15:
         condition = (row['DIAMETRO_MEDIDOR'] >= 38) and (row['Curva proy'] == 'ULTRA')
         if condition:
-            print(f'No rollover applied for Instalacion {row["INSTALACION"]}: Diametro: {row["DIAMETRO_MEDIDOR"]}, curva_proy: {row["Curva proy"]}')
+            pass
+            # print(f'No rollover applied for Instalacion {row["INSTALACION"]}: Diametro: {row["DIAMETRO_MEDIDOR"]}, curva_proy: {row["Curva proy"]}')
     return row
 
 class VanCalculator:
@@ -69,6 +70,8 @@ class VanCalculator:
         self.calculate_impuesto( tax_rate=self.params['Impuesto'] )
         self.calculate_flujo()
         self.calculate_van( rate=self.params['Tarifa'])
+        
+        self.run_scenario_1()
         self.general_cleanup()
         
     # Assuming 'datos_df' has been loaded from the 'Datos' sheet
@@ -107,7 +110,8 @@ class VanCalculator:
                 df[f"V_sub_{i}"] = -1 * (consumo_promedio + df["V_sub_1"]) * df[error_column]
             else:
                 # Handle the case where an expected Error_x column is missing
-                print(f"Warning: Missing {error_column} in dataframe. Cannot calculate V_sub {i}.")
+                pass
+                # print(f"Warning: Missing {error_column} in dataframe. Cannot calculate V_sub {i}.")
 
         self.dfs[sheet_name] = df
         
@@ -473,7 +477,7 @@ class VanCalculator:
     
             # Calculate the flujo sum for this iteration
             flujo_data[flujo_col] = main_df[[ingresos_col, C_e_col, impuesto_col]].sum(axis=1)
-            print(f"Calculated {flujo_col} sum.")
+            # print(f"Calculated {flujo_col} sum.")
     
             # Apply conditions for rollover
             if i in [14, 15]:
@@ -486,7 +490,7 @@ class VanCalculator:
         # Convert dictionary to DataFrame and update the main DataFrame
         flujo_df = pd.DataFrame(flujo_data, index=main_df.index)
         main_df = pd.concat([main_df, flujo_df], axis=1)
-        print("Updated main DataFrame with Flujo data.")
+        # print("Updated main DataFrame with Flujo data.")
     
         self.dfs[main_sheet_name] = main_df
 
@@ -522,6 +526,102 @@ class VanCalculator:
     
         # Update the DataFrame in your dictionary
         self.dfs[main_sheet_name] = main_df
+             
+        
+    def create_summary(self, consumo, SubmedicionCon, SubmedicionSin,
+                             DiferencialVol, DiferencialPorcentual,
+                             IngresosRecuperados, ErrorFinalCon, ErrorFinalSin):
+        
+        summary_template = {
+            "Año": list(range(1, 16)),
+            "Consumo (m3/año)": None,
+            "Submedición Con Proyecto (m3/año)": None,
+            "Submedición Sin Proyecto (m3)": None,
+            "Diferencial (volumen recuperado, m3/año)": None,
+            "Diferencial (% c/r consumo renovados)": None,
+            "Ingresos volumen recuperado ($/año)": None,
+            "Con Proyecto - Error ponderado final": None,
+            "Sin Proyecto - Error ponderado final": None    
+        }
+        
+        #assuming consumo is always a single value
+        consumo_list = [consumo for i in range(1,16)]
+        
+        
+        summary_data = summary_template
+        summary_data["Consumo (m3/año)"] = consumo_list
+        summary_data["Submedición Con Proyecto (m3/año)"] = list(SubmedicionCon)
+        summary_data["Submedición Sin Proyecto (m3)"] = list(SubmedicionSin)
+        summary_data["Diferencial (volumen recuperado, m3/año)"] = list(DiferencialVol)
+        summary_data["Diferencial (% c/r consumo renovados)"] = list(DiferencialPorcentual)
+        summary_data["Ingresos volumen recuperado ($/año)"] = list(IngresosRecuperados)
+        summary_data["Con Proyecto - Error ponderado final"] = list(ErrorFinalCon)
+        summary_data["Sin Proyecto - Error ponderado final"] = list(ErrorFinalSin)
+        return summary_data
+
+    def run_scenario_1(self):
+        main_sheet_name = "BBDD - Error Actual"
+        main_df = self.dfs[main_sheet_name]
+        scenario_1_name = "RESUMEN E1"
+        
+        consumo_col = "CONSUMO PROMEDIO"
+        v_sub_columns = [f"V_sub_{i}" for i in range(1,16)]
+        v_sub_proy_columns = [f'V_sub_proy_{i}' for i in range(1,16)]
+        ingreso_columns = [f"Ingresos_{i}" for i in range(1,16)]
+        
+        van_col = "VAN"
+        filtered_df = main_df[main_df[van_col] > 0]
+        
+        # Calculate required fields
+        consumo = np.array( filtered_df[consumo_col].sum()) * 12
+        submedicion_con_proyecto = np.array( [filtered_df[vsub_proy].sum() for vsub_proy in v_sub_proy_columns] )*12
+        submedicion_sin_proyecto = np.array( [filtered_df[vsub].sum() for vsub in v_sub_columns] )*12
+                
+        diferencial_volumen_recuperado = submedicion_sin_proyecto - submedicion_con_proyecto
+        diferencial_porcentaje = (diferencial_volumen_recuperado / consumo)
+        ingresos_volumen_recuperado = [filtered_df[ingreso].sum() for ingreso in ingreso_columns]
+        
+        
+        con_proyecto_error_ponderado_final = -1*submedicion_con_proyecto / (submedicion_con_proyecto + consumo)
+        sin_proyecto_error_ponderado_final = -1*submedicion_sin_proyecto / (submedicion_sin_proyecto + consumo)
+        
+        summary = self.create_summary(consumo,
+                                 submedicion_con_proyecto,
+                                 submedicion_sin_proyecto,
+                                 diferencial_volumen_recuperado,
+                                 diferencial_porcentaje,
+                                 ingresos_volumen_recuperado,
+                                 con_proyecto_error_ponderado_final,
+                                 sin_proyecto_error_ponderado_final)
+        
+        for key, value in summary.items():
+            if not isinstance(value, list):
+                summary[key] = [value] * len(summary["Año"])
+        
+        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+        
+        #move so it aligns with years
+        newColumnNames = [str(int(col)+1) for col in summary_df.columns]
+        summary_df = summary_df.rename({num: num+1 for num in summary_df.columns},axis="columns")
+        
+        #new title
+        dataframe_title = "Scenario 1: medidores con VAN > 0"
+        summary_df["Año"] = summary_df.index
+        
+        #reorder
+        colsCampoPrimero = ["Año"] + [col for col in summary_df.columns if col != "Año"]
+        summary_df = summary_df[colsCampoPrimero]
+        
+
+        summary_df["Año"][0] = "Scenario 1: medidores con VAN > 0"
+
+        
+        #----- Final processing end
+        summary_df.iloc[0, 1:] = "" #remove duplicated years
+        self.dfs[scenario_1_name] = summary_df
+        
+        # self.dfs[scenario_1_name] = pd.DataFrame.from_dict(summary_df)
+    
             
     def general_cleanup(self):
         # List the sheet names to remove
@@ -542,7 +642,7 @@ class VanCalculator:
         with pd.ExcelWriter(filename_out, engine='xlsxwriter') as writer:
             for sheet_name, df in self.dfs.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
-        print(f"Dataframe(s) exported successfully to {filename_out}")
+        # print(f"Dataframe(s) exported successfully to {filename_out}")
 
 if __name__ == "__main__":
     folder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels\preprocessed"

@@ -58,6 +58,11 @@ def scenarios_to_string(scenarios):
         text += f"{scenario_str}\n"
     return text
 
+def print_scenarios_to_file(filename:str, scenarios:dict):
+    with open (filename, "w") as file:
+        file.write(scenarios_to_string(scenarios))
+    pass
+
 # Example dictionary for reference
 example_parameters = {
     "Nombre": ["Tarifa", "Impuesto", "Otro"],
@@ -70,10 +75,11 @@ example_parameters = {
 
 if __name__ == "__main__":
     folder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
-    filename = r"modelo MM - TALCA 28.12_v5.xlsx"
+    filename = r"modelo MM - TALCA 28.12_v6.xlsx"
     full_path = f"{folder}/{filename}"
     df=pd.read_excel(full_path, sheet_name="PARAMETROS GLOBALES")
     
     scenarios = create_scenarios(df)
     print(scenarios_to_string(scenarios))
+    print_scenarios_to_file("test-scen.txt", scenarios)
     
