@@ -23,7 +23,7 @@ class AppConfig:
         self.remove_sheets = True
         
         self.sheets_to_keep = ['BBDD - Error Actual', 'Resultados loc', 'Inicial y final',
-                               'RESUMEN E1','RESUMEN E2', 'RESUMEN E3', 'RESUMEN E4']
+                               'RESUMEN E1','RESUMEN E2', 'RESUMEN E3', 'RESUMEN E4', 'RESUMEN E5']
         
         
         self.sheets_config = {

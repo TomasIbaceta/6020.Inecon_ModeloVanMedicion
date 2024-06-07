@@ -107,6 +107,7 @@ class VanCalculator:
         self.run_scenario_2(capex_ratio = self.scenario_params['s2_capex_percent'])
         self.run_scenario_3(capex_ratio = self.scenario_params['s3_capex_percent'])
         self.run_scenario_4(capex_max = self.scenario_params['s4_capex_flat'])
+        self.run_scenario_5(tasa = self.params['Tarifa'])
         self.general_cleanup()
         
     # Assuming 'datos_df' has been loaded from the 'Datos' sheet
@@ -651,7 +652,7 @@ class VanCalculator:
         summary_df = summary_df[colsCampoPrimero]
         
         summary_df.iloc[0, summary_df.columns.get_loc("Año")] = scenario_1_title
-        summary_df.iloc[0, 1:] = "" #remove duplicated years
+        summary_df.iloc[0, 1:] = np.nan #remove duplicated years
         #----- Final processing end
         
         self.dfs[scenario_1_name] = summary_df
@@ -734,7 +735,7 @@ class VanCalculator:
         summary_df = summary_df[colsCampoPrimero]
         
         summary_df.iloc[0, summary_df.columns.get_loc("Año")] = scenario_percent_title
-        summary_df.iloc[0, 1:] = "" #remove duplicated years
+        summary_df.iloc[0, 1:] = np.nan #remove duplicated years
         #----- Final processing end
         
         self.dfs[sheetname] = summary_df
@@ -756,14 +757,14 @@ class VanCalculator:
         sorted_df = main_df[main_df[van_col] > 0].sort_values(by=van_col, ascending=False)
         
         # Use cumsum to accumulate the Inversión until it meets or exceeds the target CAPEX
-        sorted_df['Inversion_Cum'] = -1*sorted_df[inversion_col].cumsum()
-        sorted_df = sorted_df[sorted_df['Inversion_Cum'] <= capex_max]
+        sorted_df['Inversion_acumulada'] = -1*sorted_df[inversion_col].cumsum()
+        sorted_df = sorted_df[sorted_df['Inversion_acumulada'] <= capex_max]
         
         if sorted_df.empty:
-            raise ValueError("No valid rows found that meet the CAPEX condition. Adjust the capex_ratio or check the data.")
+            raise ValueError("No valid rows found that meet the CAPEX condition. Adjust the capex_flat or check the data.")
         
         # Use the final DataFrame for calculations
-        sorted_df = sorted_df.drop(columns='Inversion_Cum')
+        sorted_df = sorted_df.drop(columns='Inversion_acumulada')
         
         # Calculate required fields
         consumo = np.array( sorted_df[consumo_col].sum()) * 12
@@ -808,7 +809,82 @@ class VanCalculator:
         summary_df = summary_df[colsCampoPrimero]
         
         summary_df.iloc[0, summary_df.columns.get_loc("Año")] = scenario_percent_title
-        summary_df.iloc[0, 1:] = "" #remove duplicated years
+        summary_df.iloc[0, 1:] = np.nan #remove duplicated years
+        #----- Final processing end
+        
+        self.dfs[sheetname] = summary_df
+
+    def run_scenario_5(self, tasa = 0.07, sheetname= "RESUMEN E5"):
+        main_sheet_name = "BBDD - Error Actual"
+        main_df = self.dfs[main_sheet_name]
+        scenario_percent_title = f"Escenario 5: TIR del flujo resultante igual a {int(tasa*100)}% (VAN = 0)"
+        
+        consumo_col = "CONSUMO PROMEDIO"
+        v_sub_columns = [f"V_sub_{i}" for i in range(1,16)]
+        v_sub_proy_columns = [f'V_sub_proy_{i}' for i in range(1,16)]
+        ingreso_columns = [f"Ingresos_{i}" for i in range(1,16)]
+        inversion_col = "Inversion"
+        van_col = "VAN"
+                
+        # Use cumsum to accumulate the VAN until it's close to 0
+        sorted_df = main_df.sort_values(by=van_col, ascending=False)
+        sorted_df['VAN_acumulado'] = sorted_df[van_col].cumsum()
+        
+        closest_to_zero_index = sorted_df['VAN_acumulado'].abs().idxmin()
+
+        # Get the subset of the DataFrame up to and including that row
+        subset_df = sorted_df.loc[:closest_to_zero_index]
+        
+        if subset_df.empty:
+            raise ValueError("No valid rows found that meet the TIR condition. Adjust the TIR_PERCENT or check the data.")
+        
+        # Use the final DataFrame for calculations
+        subset_df = subset_df.drop(columns='VAN_acumulado')
+        
+        # Calculate required fields
+        consumo = np.array( subset_df[consumo_col].sum()) * 12
+        submedicion_con_proyecto = np.array( [subset_df[vsub_proy].sum() for vsub_proy in v_sub_proy_columns] )*12
+        submedicion_sin_proyecto = np.array( [subset_df[vsub].sum() for vsub in v_sub_columns] )*12
+                
+        diferencial_volumen_recuperado = submedicion_sin_proyecto - submedicion_con_proyecto
+        diferencial_porcentaje = (diferencial_volumen_recuperado / consumo)
+        ingresos_volumen_recuperado = [subset_df[ingreso].sum() for ingreso in ingreso_columns]
+        
+        
+        con_proyecto_error_ponderado_final = -1*submedicion_con_proyecto / (submedicion_con_proyecto + consumo)
+        sin_proyecto_error_ponderado_final = -1*submedicion_sin_proyecto / (submedicion_sin_proyecto + consumo)
+        
+        #---- Create the Dictionary
+        
+        summary = self.create_summary(consumo,
+                                 submedicion_con_proyecto,
+                                 submedicion_sin_proyecto,
+                                 diferencial_volumen_recuperado,
+                                 diferencial_porcentaje,
+                                 ingresos_volumen_recuperado,
+                                 con_proyecto_error_ponderado_final,
+                                 sin_proyecto_error_ponderado_final)
+        
+        for key, value in summary.items():
+            if not isinstance(value, list):
+                summary[key] = [value] * len(summary["Año"])
+        
+        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+        
+        #---- reorder the dataframe for proper output
+        
+        #move so it aligns with years
+        newColumnNames = [str(int(col)+1) for col in summary_df.columns]
+        summary_df = summary_df.rename({num: num+1 for num in summary_df.columns},axis="columns")
+        
+        summary_df["Año"] = summary_df.index
+        
+        #reorder
+        colsCampoPrimero = ["Año"] + [col for col in summary_df.columns if col != "Año"]
+        summary_df = summary_df[colsCampoPrimero]
+        
+        summary_df.iloc[0, summary_df.columns.get_loc("Año")] = scenario_percent_title
+        summary_df.iloc[0, 1:] = np.nan #remove duplicated years
         #----- Final processing end
         
         self.dfs[sheetname] = summary_df
