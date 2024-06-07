@@ -562,8 +562,29 @@ class VanCalculator:
     
         # Update the DataFrame in your dictionary
         self.dfs[main_sheet_name] = main_df
-             
+      
+    def create_summary_df(self, consumo, SubmedicionCon, SubmedicionSin,
+                                DiferencialVol, DiferencialPorcentual,
+                                IngresosRecuperados, ErrorFinalCon, ErrorFinalSin,
+                                capex = 10,
+                                n_de_medidores = 10):
         
+        summary = self.create_summary(consumo, SubmedicionCon, SubmedicionSin,
+                                      DiferencialVol, DiferencialPorcentual,
+                                      IngresosRecuperados, ErrorFinalCon, ErrorFinalSin)
+        
+        for key, value in summary.items():
+            if not isinstance(value, list):
+                summary[key] = [value] * len(summary["Año"])
+        
+        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+        
+        summary["CAPEX"] = [capex] #* len(summary["Año"])
+        summary["Número de medidores"] = [n_de_medidores] #* len(summary["Año"])
+
+        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+        return summary_df
+    
     def create_summary(self, consumo, SubmedicionCon, SubmedicionSin,
                              DiferencialVol, DiferencialPorcentual,
                              IngresosRecuperados, ErrorFinalCon, ErrorFinalSin):
@@ -577,7 +598,10 @@ class VanCalculator:
             "Diferencial (% c/r consumo renovados)": None,
             "Ingresos volumen recuperado ($/año)": None,
             "Con Proyecto - Error ponderado final": None,
-            "Sin Proyecto - Error ponderado final": None    
+            "Sin Proyecto - Error ponderado final": None,
+            " ": None,
+            "CAPEX": None,
+            "Número de medidores": None,
         }
         
         #assuming consumo is always a single value
@@ -602,12 +626,16 @@ class VanCalculator:
         scenario_1_title = f"Escenario: medidores con VAN > {van_value}"
         
         consumo_col = "CONSUMO PROMEDIO"
+        inversion_col = "Inversion"
         v_sub_columns = [f"V_sub_{i}" for i in range(1,16)]
         v_sub_proy_columns = [f'V_sub_proy_{i}' for i in range(1,16)]
         ingreso_columns = [f"Ingresos_{i}" for i in range(1,16)]
         
         van_col = "VAN"
         filtered_df = main_df[main_df[van_col] > van_value]
+        
+        capex = -1*filtered_df[inversion_col].sum()
+        n_de_medidores = len(filtered_df)
         
         # Calculate required fields
         consumo = np.array( filtered_df[consumo_col].sum()) * 12
@@ -621,23 +649,17 @@ class VanCalculator:
         
         con_proyecto_error_ponderado_final = -1*submedicion_con_proyecto / (submedicion_con_proyecto + consumo)
         sin_proyecto_error_ponderado_final = -1*submedicion_sin_proyecto / (submedicion_sin_proyecto + consumo)
-        
-        #---- Create the Dictionary
-        
-        summary = self.create_summary(consumo,
-                                 submedicion_con_proyecto,
-                                 submedicion_sin_proyecto,
-                                 diferencial_volumen_recuperado,
-                                 diferencial_porcentaje,
-                                 ingresos_volumen_recuperado,
-                                 con_proyecto_error_ponderado_final,
-                                 sin_proyecto_error_ponderado_final)
-        
-        for key, value in summary.items():
-            if not isinstance(value, list):
-                summary[key] = [value] * len(summary["Año"])
-        
-        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+                
+        summary_df = self.create_summary_df(consumo,
+                                  submedicion_con_proyecto,
+                                  submedicion_sin_proyecto,
+                                  diferencial_volumen_recuperado,
+                                  diferencial_porcentaje,
+                                  ingresos_volumen_recuperado,
+                                  con_proyecto_error_ponderado_final,
+                                  sin_proyecto_error_ponderado_final,
+                                  capex,
+                                  n_de_medidores)
         
         #---- reorder the dataframe for proper output
         
@@ -692,6 +714,9 @@ class VanCalculator:
         # Use the final DataFrame for calculations
         sorted_df = sorted_df.drop(columns='Inversion_Cum')
         
+        capex = -1*sorted_df[inversion_col].sum()
+        n_de_medidores = len(sorted_df)
+        
         # Calculate required fields
         consumo = np.array( sorted_df[consumo_col].sum()) * 12
         submedicion_con_proyecto = np.array( [sorted_df[vsub_proy].sum() for vsub_proy in v_sub_proy_columns] )*12
@@ -706,21 +731,16 @@ class VanCalculator:
         sin_proyecto_error_ponderado_final = -1*submedicion_sin_proyecto / (submedicion_sin_proyecto + consumo)
         
         #---- Create the Dictionary
-        
-        summary = self.create_summary(consumo,
-                                 submedicion_con_proyecto,
-                                 submedicion_sin_proyecto,
-                                 diferencial_volumen_recuperado,
-                                 diferencial_porcentaje,
-                                 ingresos_volumen_recuperado,
-                                 con_proyecto_error_ponderado_final,
-                                 sin_proyecto_error_ponderado_final)
-        
-        for key, value in summary.items():
-            if not isinstance(value, list):
-                summary[key] = [value] * len(summary["Año"])
-        
-        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+        summary_df = self.create_summary_df(consumo,
+                                  submedicion_con_proyecto,
+                                  submedicion_sin_proyecto,
+                                  diferencial_volumen_recuperado,
+                                  diferencial_porcentaje,
+                                  ingresos_volumen_recuperado,
+                                  con_proyecto_error_ponderado_final,
+                                  sin_proyecto_error_ponderado_final,
+                                  capex,
+                                  n_de_medidores)
         
         #---- reorder the dataframe for proper output
         
@@ -767,6 +787,10 @@ class VanCalculator:
         sorted_df = sorted_df.drop(columns='Inversion_acumulada')
         
         # Calculate required fields
+        
+        capex = -1*sorted_df[inversion_col].sum()
+        n_de_medidores = len(sorted_df)
+        
         consumo = np.array( sorted_df[consumo_col].sum()) * 12
         submedicion_con_proyecto = np.array( [sorted_df[vsub_proy].sum() for vsub_proy in v_sub_proy_columns] )*12
         submedicion_sin_proyecto = np.array( [sorted_df[vsub].sum() for vsub in v_sub_columns] )*12
@@ -781,20 +805,16 @@ class VanCalculator:
         
         #---- Create the Dictionary
         
-        summary = self.create_summary(consumo,
-                                 submedicion_con_proyecto,
-                                 submedicion_sin_proyecto,
-                                 diferencial_volumen_recuperado,
-                                 diferencial_porcentaje,
-                                 ingresos_volumen_recuperado,
-                                 con_proyecto_error_ponderado_final,
-                                 sin_proyecto_error_ponderado_final)
-        
-        for key, value in summary.items():
-            if not isinstance(value, list):
-                summary[key] = [value] * len(summary["Año"])
-        
-        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+        summary_df = self.create_summary_df(consumo,
+                                  submedicion_con_proyecto,
+                                  submedicion_sin_proyecto,
+                                  diferencial_volumen_recuperado,
+                                  diferencial_porcentaje,
+                                  ingresos_volumen_recuperado,
+                                  con_proyecto_error_ponderado_final,
+                                  sin_proyecto_error_ponderado_final,
+                                  capex,
+                                  n_de_medidores)
         
         #---- reorder the dataframe for proper output
         
@@ -842,6 +862,10 @@ class VanCalculator:
         subset_df = subset_df.drop(columns='VAN_acumulado')
         
         # Calculate required fields
+        
+        capex = -1*subset_df[inversion_col].sum()
+        n_de_medidores = len(subset_df)
+        
         consumo = np.array( subset_df[consumo_col].sum()) * 12
         submedicion_con_proyecto = np.array( [subset_df[vsub_proy].sum() for vsub_proy in v_sub_proy_columns] )*12
         submedicion_sin_proyecto = np.array( [subset_df[vsub].sum() for vsub in v_sub_columns] )*12
@@ -856,20 +880,16 @@ class VanCalculator:
         
         #---- Create the Dictionary
         
-        summary = self.create_summary(consumo,
-                                 submedicion_con_proyecto,
-                                 submedicion_sin_proyecto,
-                                 diferencial_volumen_recuperado,
-                                 diferencial_porcentaje,
-                                 ingresos_volumen_recuperado,
-                                 con_proyecto_error_ponderado_final,
-                                 sin_proyecto_error_ponderado_final)
-        
-        for key, value in summary.items():
-            if not isinstance(value, list):
-                summary[key] = [value] * len(summary["Año"])
-        
-        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+        summary_df = self.create_summary_df(consumo,
+                                  submedicion_con_proyecto,
+                                  submedicion_sin_proyecto,
+                                  diferencial_volumen_recuperado,
+                                  diferencial_porcentaje,
+                                  ingresos_volumen_recuperado,
+                                  con_proyecto_error_ponderado_final,
+                                  sin_proyecto_error_ponderado_final,
+                                  capex,
+                                  n_de_medidores)
         
         #---- reorder the dataframe for proper output
         
