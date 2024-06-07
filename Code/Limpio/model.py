@@ -91,8 +91,12 @@ class BulkExcelLoader:
         scenarios = self.get_scenarios(filename)
         
         output_dir = f"{self.folderName}\output"
+        os.makedirs(output_dir, exist_ok=True)
+        
         scenarios_filename = f"{filename.split('.xlsx')[0]}.txt" 
         print_scenarios_to_file(f"{output_dir}\{scenarios_filename}", scenarios)
+        
+        
         
         for scenario in scenarios:
             self.run_algorithm_on_filename(filename, scenario)
