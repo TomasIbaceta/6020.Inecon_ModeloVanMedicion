@@ -108,6 +108,11 @@ class VanCalculator:
         self.run_scenario_3(capex_ratio = self.scenario_params['s3_capex_percent'])
         self.run_scenario_4(capex_max = self.scenario_params['s4_capex_flat'])
         self.run_scenario_5(tasa = self.params['Tarifa'])
+        
+        self.calculate_vsub_sums_inicialFinal()
+        self.calculate_error_inicialFinal()
+        self.calculate_decaimientoAnual()
+        
         self.general_cleanup()
         
     # Assuming 'datos_df' has been loaded from the 'Datos' sheet
@@ -618,15 +623,6 @@ class VanCalculator:
         summary_data["Con Proyecto - Error ponderado final"] = list(ErrorFinalCon)
         summary_data["Sin Proyecto - Error ponderado final"] = list(ErrorFinalSin)
         return summary_data
-
-
-    def add_usage_column(self, scenario_number, subset_df):
-        main_sheet_name = "BBDD - Error Actual"
-        main_df = self.dfs[main_sheet_name]
-        
-        col_name = f"Usado en E{scenario_number}"
-        main_df[col_name] = 0  # Initialize column with 0s
-        main_df.loc[main_df.index.isin(subset_df.index), col_name] = 1
         
     def run_scenario_1(self, van_value = 0):
         main_sheet_name = "BBDD - Error Actual"
@@ -929,6 +925,58 @@ class VanCalculator:
         #----- Final processing end
         
         self.dfs[sheetname] = summary_df
+        
+    def add_usage_column(self, scenario_number, subset_df):
+        main_sheet_name = "BBDD - Error Actual"
+        main_df = self.dfs[main_sheet_name]
+        
+        col_name = f"Usado en E{scenario_number}"
+        main_df[col_name] = 0  # Initialize column with 0s
+        main_df.loc[main_df.index.isin(subset_df.index), col_name] = 1
+        
+    def calculate_vsub_sums_inicialFinal(self):
+        main_sheet_name = "BBDD - Error Actual"
+        inicialFinal_sheet_name = "Inicial y final"
+        main_df = self.dfs[main_sheet_name]
+        inicialFinal_df = self.dfs[inicialFinal_sheet_name]
+        
+        vsub_col = "V sub"
+        v_sub_actual_col = "V_sub actual"
+        localidad_col = "LOCALIDAD"
+        error_col = "Error actual"
+        decaimiento_col = "Decaímiento anual"
+        
+        # Calculate the sum of 'V sub' for each 'LOCALIDAD' in main_df
+        sum_v_sub = main_df.groupby(localidad_col)[vsub_col].sum().reset_index()
+    
+        # Merge the calculated sums back into inicialFinal_df
+        inicialFinal_df = inicialFinal_df.merge(sum_v_sub, on=localidad_col, how='left')
+        
+        # Rename the merged column to 'V_sub actual'
+        inicialFinal_df.rename(columns={vsub_col: v_sub_actual_col}, inplace=True)
+        
+        self.dfs[inicialFinal_sheet_name] = inicialFinal_df  # Update the dataframe in the dictionary
+    
+        return inicialFinal_df
+        
+    def calculate_error_inicialFinal(self):
+        inicialFinal_sheet_name = "Inicial y final"
+        df = self.dfs[inicialFinal_sheet_name]
+        
+        error_col = "Error Actual"
+        v_sub_actual_col = "V_sub actual"
+        volumen_col = "Volumen"
+        
+        df[error_col] = df[v_sub_actual_col] / ( df[volumen_col]+df[v_sub_actual_col] )
+    
+    def calculate_decaimientoAnual(self):
+        inicialFinal_sheet_name = "Inicial y final"
+        df = self.dfs[inicialFinal_sheet_name]
+        
+        decaimiento_col= "Decaímiento anual"
+        
+        df[decaimiento_col ] = (df["Error final"] - df["Error inicial"]
+                                / df["Edad final"] - df["Edad inicial"]    ) 
             
     def general_cleanup(self):
         # List the sheet names to remove
