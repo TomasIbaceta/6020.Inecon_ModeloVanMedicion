@@ -1,13 +1,8 @@
 import pandas as pd
 import numpy as np
 
-##PETORCA
-# direccion_excel=r"C:\GitHub\6020.Inecon_ModeloVanMedicion\Code\micromed_input__Datos INPUT modelo MM - PETORCA 28.12.xlsx"
-direccion_excel=r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels\modelo MM - TALCA 28.12_v3.xlsx"
+direccion_excel=r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels\modelo MM - TALCA 28.12_v6"
 direccion_excel_salida = "ANY-Processed_MM.xlsx"
-
-import pandas as pd
-import numpy as np
 
 def mm_calc_run_alg_all(exceldata, scenario:dict):
     # Retrieve all localities
@@ -52,7 +47,7 @@ def mm_calc_run_alg_all(exceldata, scenario:dict):
 
 def get_localidades_in_DATOS(exceldata):
     data_completa =exceldata["DATOS"]
-    return data_completa["LOCALIDAD"].unique().tolist()
+    return data_completa["LOCALIDAD"].unique().tolist()    
     
 def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
     
@@ -341,7 +336,7 @@ def seleccionar_autocontrol(df_autocontrol, localidad, tipo_error_CAlto):
     else: 
         raise Exception("Revisar")
         
-def error(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
+def error_old(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
     """Calcula el error de cada medidor tomando todas las consideraciones correspondientes."""
 
     diametro=group["Diametro_max"].tolist()[0]
@@ -365,6 +360,32 @@ def error(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos
         group['Decaimiento'] = group.apply(lambda x:x["Año 0"]+ x["Pendiente"]*np.log(x["Antiguedad ajustada"])/100  if x["Intervalo (l/h)"] in intervalos_cb else x["Año 0"] ,axis=1)
         return autocontrol_diametro_alto*(1 - group['% Consumo'].sum())+ sum(group['% Consumo']*group['Decaimiento'])
 
+def error(group, autocontrol, autocontrol_diametro_alto, error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
+    """Calcula el error de cada medidor tomando todas las consideraciones correspondientes."""
+
+    diametro = group["Diametro_max"].values[0]
+    grupo = group["Grupo"].values[0] if flag == 1 else group["Curva proy"].values[0]
+    
+    if grupo == 'ULTRA':
+        return error_ultra
+    
+    intervalos_cb = intervalos_caudal_bajo_c25 if grupo == 'C-25' else intervalos_caudal_bajo
+    
+    intervalos_cb_set = set(intervalos_cb)
+    is_intervalo_cb = group["Intervalo (l/h)"].isin(intervalos_cb_set).values
+    
+    antiguedad_log = np.log(group["Antiguedad ajustada"].values)
+    decaimiento = group["Año 0"].values + (group["Pendiente"].values * antiguedad_log / 100) * is_intervalo_cb
+    
+    consumo = group['% Consumo'].values
+    consumo_sum = np.sum(consumo)
+    consumo_decaimiento_sum = np.sum(consumo * decaimiento)
+    
+    if diametro:
+        return autocontrol * (1 - consumo_sum) + consumo_decaimiento_sum
+    else:
+        return autocontrol_diametro_alto * (1 - consumo_sum) + consumo_decaimiento_sum
+    
 def IyF(data,
         edad_inicial_iyf,
         edad_final_iyf, 
@@ -554,13 +575,12 @@ def get_localidades_from_excel(exceldata, sheet_name='PARAMETROS POR LOCALIDAD')
 
 
 # if __name__ == "__main__": 
-    
-#     # localidad = "CURICO"
-#     exceldata=pd.read_excel(direccion_excel, sheet_name=None)
-#     salida = mm_calc_run_alg_all(exceldata)
-    
-#     # localidad_parameters = read_parameters_from_excel(exceldata, localidad)
-#     # salida = mm_calc_run_alg(exceldata, localidad_parameters)
+#     excelFolder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
+#     excelName = r"modelo MM - TALCA 28.12_v6.xlsx"
+#     excelPath = f"{excelFolder}\{excelName}"
+#     exceldata=pd.read_excel(excelPath, sheet_name=None)
+        
+#     salida = mm_calc_run_alg_all(exceldata, example_scenario)
     
 #     #Grabar la salida
 #     with pd.ExcelWriter(direccion_excel_salida, engine='xlsxwriter') as writer:
