@@ -3,6 +3,7 @@ from model import BulkExcelLoader
 
 #folder_path es directorio porque carga todos los excels que encuentra
 folder_path = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
+# folder_path = r"C:\Users\toman\Downloads\carpeta"
 
 #------ Load the model ----- #
 model = BulkExcelLoader()
@@ -18,7 +19,7 @@ for i, filename in enumerate(filename_list):
     print(f"Processing file {i + 1}/{valid_count}: {filename}")
     
     try:
-        model.run_algorithm_on_filename(filename)
+        model.run_algo_allScenarios(filename)
         print(f"Successfully processed: {filename}")
 
     except Exception as e:

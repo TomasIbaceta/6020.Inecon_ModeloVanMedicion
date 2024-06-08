@@ -1,15 +1,10 @@
 import pandas as pd
 import numpy as np
 
-##PETORCA
-# direccion_excel=r"C:\GitHub\6020.Inecon_ModeloVanMedicion\Code\micromed_input__Datos INPUT modelo MM - PETORCA 28.12.xlsx"
-direccion_excel=r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels\modelo MM - TALCA 28.12_v3.xlsx"
+direccion_excel=r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels\modelo MM - TALCA 28.12_v6"
 direccion_excel_salida = "ANY-Processed_MM.xlsx"
 
-import pandas as pd
-import numpy as np
-
-def mm_calc_run_alg_all(exceldata):
+def mm_calc_run_alg_all(exceldata, scenario:dict):
     # Retrieve all localities
     localidades = get_localidades_from_excel(exceldata)
     
@@ -19,7 +14,7 @@ def mm_calc_run_alg_all(exceldata):
     # We need certain sheets to go straight through to the excel for use further
     # down the pipeline.
     
-    passthrough_sheets = ['FLUJO E1', 'Datos_Tarifas', 'PARAMETROS GLOBALES']
+    passthrough_sheets = ['FLUJO E1', 'Datos_Tarifas', 'PARAMETROS GLOBALES', 'MANEJO DE ESCENARIOS']
     
     for special_sheet in passthrough_sheets:
         # Check if the sheet exists in the original exceldata
@@ -37,7 +32,7 @@ def mm_calc_run_alg_all(exceldata):
         parameters = read_parameters_from_excel(exceldata, localidad)
         
         # Run the main algorithm with the current parameters
-        output = mm_calc_run_alg(exceldata, parameters)
+        output = mm_calc_run_alg(exceldata, parameters, scenario)
         
         # Concatenate each output into the combined_results dictionary
         for sheet_name, df in output.items():
@@ -52,15 +47,23 @@ def mm_calc_run_alg_all(exceldata):
 
 def get_localidades_in_DATOS(exceldata):
     data_completa =exceldata["DATOS"]
-    return data_completa["LOCALIDAD"].unique().tolist()
+    return data_completa["LOCALIDAD"].unique().tolist()    
     
-def mm_calc_run_alg(exceldata, parametros_localidad):
+def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
+    
+    #load global params from scenario
+    try:
+        diametro_max = scenario["Diametro Max"]
+        error_ultra = scenario["Error Ultra"]
+    except:
+        raise ValueError("invalid Scenario")
+    
     data_completa =exceldata["DATOS"]
     df_clases =exceldata["CLASES"]
     df_edad =exceldata["EDAD"]
     df_caudal =exceldata["CAUDAL MODIFICADO"]
     df_caudal_original =exceldata["CAUDAL ORIGINAL"]
-    df_params =exceldata["PARAMETROS"]
+    # df_params =exceldata["PARAMETROS"]
     df_autocontrol =exceldata["PROGRAMA AUTOCONTROL"]
     df_porc_caudal_para_pendiente=exceldata["PORC CAUDAL PENDIENTE"]
     df_clase_grupo_decaimiento=exceldata["REFERENCIA CLASES DECAIMIENTO"]
@@ -82,9 +85,9 @@ def mm_calc_run_alg(exceldata, parametros_localidad):
     #parametros fijos
     intervalos_caudal_bajo=['8-16','16-32', '32-66' ]
     intervalos_caudal_bajo_c25=['16-32', '32-66' ]
-    medidores_presicion=['R400', 'R800'] #TODO: medidores de precision
-    diametro_max=38
-    error_ultra=-0.02
+
+    medidores_presicion=['R400', 'R800']
+
 
     #selecccionar datos
     data = data_completa.loc[(data_completa["LOCALIDAD"]== localidad) & (data_completa["SECTOR AP"].isin(sectores))] 
@@ -377,6 +380,32 @@ def error(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos
         group['Decaimiento'] = group.apply(lambda x:x["Año 0"]+ x["Pendiente"]*np.log(x["Antiguedad ajustada"])/100  if x["Intervalo (l/h)"] in intervalos_cb else x["Año 0"] ,axis=1)
         return autocontrol_diametro_alto*(1 - group['% Consumo'].sum())+ sum(group['% Consumo']*group['Decaimiento'])
 
+def error_opt(group, autocontrol, autocontrol_diametro_alto, error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
+    """Calcula el error de cada medidor tomando todas las consideraciones correspondientes."""
+
+    diametro = group["Diametro_max"].values[0]
+    grupo = group["Grupo"].values[0] if flag == 1 else group["Curva proy"].values[0]
+    
+    if grupo == 'ULTRA':
+        return error_ultra
+    
+    intervalos_cb = intervalos_caudal_bajo_c25 if grupo == 'C-25' else intervalos_caudal_bajo
+    
+    intervalos_cb_set = set(intervalos_cb)
+    is_intervalo_cb = group["Intervalo (l/h)"].isin(intervalos_cb_set).values
+    
+    antiguedad_log = np.log(group["Antiguedad ajustada"].values)
+    decaimiento = group["Año 0"].values + (group["Pendiente"].values * antiguedad_log / 100) * is_intervalo_cb
+    
+    consumo = group['% Consumo'].values
+    consumo_sum = np.sum(consumo)
+    consumo_decaimiento_sum = np.sum(consumo * decaimiento)
+    
+    if diametro:
+        return autocontrol * (1 - consumo_sum) + consumo_decaimiento_sum
+    else:
+        return autocontrol_diametro_alto * (1 - consumo_sum) + consumo_decaimiento_sum
+    
 def IyF(data,
         edad_inicial_iyf,
         edad_final_iyf, 
@@ -542,7 +571,7 @@ def read_parameters_from_excel(exceldata, localidad, sheet_name='PARAMETROS POR 
     parametros_localidad = {
         "fecha_estudio": pd.to_datetime(localidad_row['Fecha estudio'].values[0]),
         "localidad": localidad,
-        "sectores": localidad_row['Sector'].dropna().tolist(),
+        "sectores": df_params[df_params['Localidad.1'] == localidad]['Sector'].dropna().tolist(),
         "tipo_error_CAlto": localidad_row['Error caudal alto < 38mm'].values[0],
         "edad_minima_decaimiento": localidad_row['Edad minima decaimiento'].values[0],
         "edad_maxima_decaimiento": localidad_row['Edad máxima decaimiento'].values[0],
@@ -566,13 +595,12 @@ def get_localidades_from_excel(exceldata, sheet_name='PARAMETROS POR LOCALIDAD')
 
 
 # if __name__ == "__main__": 
-    
-#     # localidad = "CURICO"
-#     exceldata=pd.read_excel(direccion_excel, sheet_name=None)
-#     salida = mm_calc_run_alg_all(exceldata)
-    
-#     # localidad_parameters = read_parameters_from_excel(exceldata, localidad)
-#     # salida = mm_calc_run_alg(exceldata, localidad_parameters)
+#     excelFolder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
+#     excelName = r"modelo MM - TALCA 28.12_v6.xlsx"
+#     excelPath = f"{excelFolder}\{excelName}"
+#     exceldata=pd.read_excel(excelPath, sheet_name=None)
+        
+#     salida = mm_calc_run_alg_all(exceldata, example_scenario)
     
 #     #Grabar la salida
 #     with pd.ExcelWriter(direccion_excel_salida, engine='xlsxwriter') as writer:

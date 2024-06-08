@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
 import sys
 import os
 from model import BulkExcelLoader
-
+from scenario_creator import *
 import logging
 
 # Basic logger setup without a file handler
@@ -124,15 +124,16 @@ class Worker(QObject):
     def run(self):
         output_str = ""
         filename_list = self.model.get_valid_filenames()
+        print(filename_list)
         valid, total = self.model.get_count_valid_and_total_filenames()
         output_str+="\n=============\nALGORITMO"
         for i, filename in enumerate(filename_list):
             self.progress_signal.emit(i+1, valid)
             try:
-                self.model.run_algorithm_on_filename(filename)
+                self.model.run_algo_allScenarios(filename)
                 output_str+=(f"\n{filename}: OK.")
-            except:
-                output_str+=(f"\n{filename}: Error. formato de entrada de datos inválido.")
+            except Exception as e:
+                output_str+=(f"\n{filename}: Error. formato de entrada de datos inválido.\n {e}")
         self.logger.info(output_str)
         self.completed_signal.emit()
 

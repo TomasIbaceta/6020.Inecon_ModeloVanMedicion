@@ -1,0 +1,40 @@
+2024-05-31 11:44:47 - __main__ - INFO - 
+===============
+FORMATO
+app.log: Descartado, formato inválido.
+modelo MM - TALCA 28.12_v6.xlsx: OK
+~$modelo MM - TALCA 28.12_v4.xlsx: OK
+~$modelo MM - TALCA 28.12_v6.xlsx: OK
+
+2024-05-31 11:44:51 - __main__ - INFO - 
+=============
+ALGORITMO
+modelo MM - TALCA 28.12_v6.xlsx: Error. formato de entrada de datos inválido.
+ [Errno 2] No such file or directory: 'modelo MM - TALCA 28.12_v6.xlsx'
+~$modelo MM - TALCA 28.12_v4.xlsx: OK.
+~$modelo MM - TALCA 28.12_v6.xlsx: OK.
+2024-05-31 11:45:18 - __main__ - INFO - 
+===============
+FORMATO
+app.log: Descartado, formato inválido.
+modelo MM - TALCA 28.12_v6.xlsx: OK
+~$modelo MM - TALCA 28.12_v4.xlsx: OK
+
+2024-05-31 11:45:21 - __main__ - INFO - 
+=============
+ALGORITMO
+modelo MM - TALCA 28.12_v6.xlsx: Error. formato de entrada de datos inválido.
+ [Errno 2] No such file or directory: 'modelo MM - TALCA 28.12_v6.xlsx'
+~$modelo MM - TALCA 28.12_v4.xlsx: OK.
+2024-05-31 12:08:28 - __main__ - INFO - 
+===============
+FORMATO
+app.log: Descartado, formato inválido.
+INPUT ADV 28.05 - prueba.xlsx: OK
+~$INPUT ADV 28.05 - prueba.xlsx: OK
+
+2024-05-31 13:27:38 - __main__ - INFO - 
+=============
+ALGORITMO
+INPUT ADV 28.05 - prueba.xlsx: OK.
+~$INPUT ADV 28.05 - prueba.xlsx: OK.

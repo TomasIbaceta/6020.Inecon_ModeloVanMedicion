@@ -16,7 +16,8 @@ def check_rollover_conditions(row, i, inversion_col, valor_res_col):
     if i == 14 or i == 15:
         condition = (row['DIAMETRO_MEDIDOR'] >= 38) and (row['Curva proy'] == 'ULTRA')
         if condition:
-            print(f'No rollover applied for Instalacion {row["INSTALACION"]}: Diametro: {row["DIAMETRO_MEDIDOR"]}, curva_proy: {row["Curva proy"]}')
+            pass
+            # print(f'No rollover applied for Instalacion {row["INSTALACION"]}: Diametro: {row["DIAMETRO_MEDIDOR"]}, curva_proy: {row["Curva proy"]}')
     return row
 
 class VanCalculator:
@@ -24,12 +25,43 @@ class VanCalculator:
         # Start with empty attributes
         self.dfs = {}
         self.excel_path = None
-        self.params = None        
+        self.params = None
+        self.scenario_params = None
 
     def load_df_from_excel(self, excel_path):
         # Load the main DataFrame(s) from the specified Excel path
         self.excel_path = excel_path
         self.dfs = pd.read_excel(excel_path, sheet_name=None)  # Dictionary of DataFrames
+    
+    def load_scenario_params(self):
+        params_df=self.dfs["MANEJO DE ESCENARIOS"]
+        self.scenario_params={
+            "s1_van_percent": None,
+            "s2_capex_percent": None,
+            "s3_capex_percent": None,
+            "s4_capex_flat": None,
+            "s5_TIR": None,
+            }
+        
+        scenario_mapping = {
+            1: "s1_van_percent",
+            2: "s2_capex_percent",
+            3: "s3_capex_percent",
+            4: "s4_capex_flat",
+            5: "s5_TIR"
+        }
+        
+        # Populate the dictionary with the values from the DataFrame
+        for _, row in params_df.iterrows():
+            scenario_number = row["Escenario"]
+            value = row["Valor"]
+            if scenario_number in scenario_mapping:
+                key = scenario_mapping[scenario_number]
+                if "%" in str(value):
+                    value = float(value.strip('%')) / 100
+                else:
+                    value = float(str(value))
+                self.scenario_params[key] = value
         
     def get_global_params(self):
         return self.params
@@ -44,8 +76,16 @@ class VanCalculator:
         except:
             self.params=self.get_default_params()
             
+    def set_global_params_from_dict(self, scenario: dict):
+        if not scenario:
+            raise ValueError("The provided scenario is empty.")
+        
+        self.params = scenario
+        
+            
     def run_all(self):
-        self.set_global_params_from_df()
+        if not self.params:
+            raise ValueError("Can't run VanCalculator without parameters.")
         
         self.get_flujo_diameter_table()
         self.merge_tarifa()
@@ -61,6 +101,18 @@ class VanCalculator:
         self.calculate_impuesto( tax_rate=self.params['Impuesto'] )
         self.calculate_flujo()
         self.calculate_van( rate=self.params['Tarifa'])
+        
+        self.load_scenario_params()
+        self.run_scenario_1(van_value = self.scenario_params['s1_van_percent'])
+        self.run_scenario_2(capex_ratio = self.scenario_params['s2_capex_percent'])
+        self.run_scenario_3(capex_ratio = self.scenario_params['s3_capex_percent'])
+        self.run_scenario_4(capex_max = self.scenario_params['s4_capex_flat'])
+        self.run_scenario_5(tasa = self.params['Tarifa'])
+        
+        self.calculate_vsub_sums_inicialFinal()
+        self.calculate_error_inicialFinal()
+        self.calculate_decaimientoAnual()
+        
         self.general_cleanup()
         
     # Assuming 'datos_df' has been loaded from the 'Datos' sheet
@@ -99,7 +151,8 @@ class VanCalculator:
                 df[f"V_sub_{i}"] = -1 * (consumo_promedio + df["V_sub_1"]) * df[error_column]
             else:
                 # Handle the case where an expected Error_x column is missing
-                print(f"Warning: Missing {error_column} in dataframe. Cannot calculate V_sub {i}.")
+                pass
+                # print(f"Warning: Missing {error_column} in dataframe. Cannot calculate V_sub {i}.")
 
         self.dfs[sheet_name] = df
         
@@ -465,7 +518,7 @@ class VanCalculator:
     
             # Calculate the flujo sum for this iteration
             flujo_data[flujo_col] = main_df[[ingresos_col, C_e_col, impuesto_col]].sum(axis=1)
-            print(f"Calculated {flujo_col} sum.")
+            # print(f"Calculated {flujo_col} sum.")
     
             # Apply conditions for rollover
             if i in [14, 15]:
@@ -478,7 +531,7 @@ class VanCalculator:
         # Convert dictionary to DataFrame and update the main DataFrame
         flujo_df = pd.DataFrame(flujo_data, index=main_df.index)
         main_df = pd.concat([main_df, flujo_df], axis=1)
-        print("Updated main DataFrame with Flujo data.")
+        # print("Updated main DataFrame with Flujo data.")
     
         self.dfs[main_sheet_name] = main_df
 
@@ -514,6 +567,416 @@ class VanCalculator:
     
         # Update the DataFrame in your dictionary
         self.dfs[main_sheet_name] = main_df
+      
+    def create_summary_df(self, consumo, SubmedicionCon, SubmedicionSin,
+                                DiferencialVol, DiferencialPorcentual,
+                                IngresosRecuperados, ErrorFinalCon, ErrorFinalSin,
+                                capex = 10,
+                                n_de_medidores = 10):
+        
+        summary = self.create_summary(consumo, SubmedicionCon, SubmedicionSin,
+                                      DiferencialVol, DiferencialPorcentual,
+                                      IngresosRecuperados, ErrorFinalCon, ErrorFinalSin)
+        
+        for key, value in summary.items():
+            if not isinstance(value, list):
+                summary[key] = [value] * len(summary["Año"])
+        
+        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+        
+        summary["CAPEX"] = [capex] #* len(summary["Año"])
+        summary["Número de medidores"] = [n_de_medidores] #* len(summary["Año"])
+
+        summary_df = pd.DataFrame.from_dict(summary, orient='index')
+        return summary_df
+    
+    def create_summary(self, consumo, SubmedicionCon, SubmedicionSin,
+                             DiferencialVol, DiferencialPorcentual,
+                             IngresosRecuperados, ErrorFinalCon, ErrorFinalSin):
+        
+        summary_template = {
+            "Año": list(range(1, 16)),
+            "Consumo (m3/año)": None,
+            "Submedición Con Proyecto (m3/año)": None,
+            "Submedición Sin Proyecto (m3)": None,
+            "Diferencial (volumen recuperado, m3/año)": None,
+            "Diferencial (% c/r consumo renovados)": None,
+            "Ingresos volumen recuperado ($/año)": None,
+            "Con Proyecto - Error ponderado final": None,
+            "Sin Proyecto - Error ponderado final": None,
+            " ": None,
+            "CAPEX": None,
+            "Número de medidores": None,
+        }
+        
+        #assuming consumo is always a single value
+        consumo_list = [consumo for i in range(1,16)]
+        
+        
+        summary_data = summary_template
+        summary_data["Consumo (m3/año)"] = consumo_list
+        summary_data["Submedición Con Proyecto (m3/año)"] = list(SubmedicionCon)
+        summary_data["Submedición Sin Proyecto (m3)"] = list(SubmedicionSin)
+        summary_data["Diferencial (volumen recuperado, m3/año)"] = list(DiferencialVol)
+        summary_data["Diferencial (% c/r consumo renovados)"] = list(DiferencialPorcentual)
+        summary_data["Ingresos volumen recuperado ($/año)"] = list(IngresosRecuperados)
+        summary_data["Con Proyecto - Error ponderado final"] = list(ErrorFinalCon)
+        summary_data["Sin Proyecto - Error ponderado final"] = list(ErrorFinalSin)
+        return summary_data
+        
+    def run_scenario_1(self, van_value = 0):
+        main_sheet_name = "BBDD - Error Actual"
+        main_df = self.dfs[main_sheet_name]
+        scenario_1_name = "RESUMEN E1"
+        scenario_1_title = f"Escenario: medidores con VAN > {van_value}"
+        
+        consumo_col = "CONSUMO PROMEDIO"
+        inversion_col = "Inversion"
+        v_sub_columns = [f"V_sub_{i}" for i in range(1,16)]
+        v_sub_proy_columns = [f'V_sub_proy_{i}' for i in range(1,16)]
+        ingreso_columns = [f"Ingresos_{i}" for i in range(1,16)]
+        
+        van_col = "VAN"
+        filtered_df = main_df[main_df[van_col] > van_value]
+        
+        self.add_usage_column(1, filtered_df)
+        
+        capex = -1*filtered_df[inversion_col].sum()
+        n_de_medidores = len(filtered_df)
+        
+        # Calculate required fields
+        consumo = np.array( filtered_df[consumo_col].sum()) * 12
+        submedicion_con_proyecto = np.array( [filtered_df[vsub_proy].sum() for vsub_proy in v_sub_proy_columns] )*12
+        submedicion_sin_proyecto = np.array( [filtered_df[vsub].sum() for vsub in v_sub_columns] )*12
+                
+        diferencial_volumen_recuperado = submedicion_sin_proyecto - submedicion_con_proyecto
+        diferencial_porcentaje = (diferencial_volumen_recuperado / consumo)
+        ingresos_volumen_recuperado = [filtered_df[ingreso].sum() for ingreso in ingreso_columns]
+        
+        
+        con_proyecto_error_ponderado_final = -1*submedicion_con_proyecto / (submedicion_con_proyecto + consumo)
+        sin_proyecto_error_ponderado_final = -1*submedicion_sin_proyecto / (submedicion_sin_proyecto + consumo)
+                
+        summary_df = self.create_summary_df(consumo,
+                                  submedicion_con_proyecto,
+                                  submedicion_sin_proyecto,
+                                  diferencial_volumen_recuperado,
+                                  diferencial_porcentaje,
+                                  ingresos_volumen_recuperado,
+                                  con_proyecto_error_ponderado_final,
+                                  sin_proyecto_error_ponderado_final,
+                                  capex,
+                                  n_de_medidores)
+        
+        #---- reorder the dataframe for proper output
+        
+        #move so it aligns with years
+        newColumnNames = [str(int(col)+1) for col in summary_df.columns]
+        summary_df = summary_df.rename({num: num+1 for num in summary_df.columns},axis="columns")
+        
+        summary_df["Año"] = summary_df.index
+        
+        #reorder
+        colsCampoPrimero = ["Año"] + [col for col in summary_df.columns if col != "Año"]
+        summary_df = summary_df[colsCampoPrimero]
+        
+        summary_df.iloc[0, summary_df.columns.get_loc("Año")] = scenario_1_title
+        summary_df.iloc[0, 1:] = np.nan #remove duplicated years
+        #----- Final processing end
+        
+        self.dfs[scenario_1_name] = summary_df
+        
+    
+    def run_scenario_2(self, scenario_number = 2, capex_ratio=0.65, sheetname = "RESUMEN E2"):
+        self.run_scenario_percentCapex(scenario_number = scenario_number,
+                                       sheetname = sheetname,
+                                       capex_ratio = capex_ratio)
+        
+    def run_scenario_3(self, scenario_number = 3, capex_ratio=0.30, sheetname = "RESUMEN E3"):
+        self.run_scenario_percentCapex(scenario_number = scenario_number,
+                                       sheetname = sheetname,
+                                       capex_ratio = capex_ratio)
+    
+    def run_scenario_percentCapex(self, scenario_number, sheetname, capex_ratio):
+        main_sheet_name = "BBDD - Error Actual"
+        main_df = self.dfs[main_sheet_name]
+        scenario_percent_title = f"Escenario: medidores con CAPEX ≈ {int(capex_ratio * 100)}% del CAPEX de E1"
+        
+        consumo_col = "CONSUMO PROMEDIO"
+        v_sub_columns = [f"V_sub_{i}" for i in range(1,16)]
+        v_sub_proy_columns = [f'V_sub_proy_{i}' for i in range(1,16)]
+        ingreso_columns = [f"Ingresos_{i}" for i in range(1,16)]
+        inversion_col = "Inversion"
+        van_col = "VAN"
+        
+        #Calculate the CAPEX of Scenario 1
+        positiveVan_df = main_df[main_df[van_col] > 0] 
+        capex_scenario1 = -1 * (positiveVan_df[inversion_col].sum() * capex_ratio) #-1 because inversion is defined as a negative number
+        
+        sorted_df = main_df[main_df[van_col] > 0].sort_values(by=van_col, ascending=False)
+        
+        # Use cumsum to accumulate the Inversión until it meets or exceeds the target CAPEX
+        sorted_df['Inversion_Cum'] = -1*sorted_df[inversion_col].cumsum()
+        sorted_df = sorted_df[sorted_df['Inversion_Cum'] <= capex_scenario1]
+        
+        if sorted_df.empty:
+            raise ValueError("No valid rows found that meet the CAPEX condition. Adjust the capex_ratio or check the data.")
+        
+        # Use the final DataFrame for calculations
+        sorted_df = sorted_df.drop(columns='Inversion_Cum')
+        
+        self.add_usage_column(scenario_number, sorted_df)
+        
+        capex = -1*sorted_df[inversion_col].sum()
+        n_de_medidores = len(sorted_df)
+        
+        # Calculate required fields
+        consumo = np.array( sorted_df[consumo_col].sum()) * 12
+        submedicion_con_proyecto = np.array( [sorted_df[vsub_proy].sum() for vsub_proy in v_sub_proy_columns] )*12
+        submedicion_sin_proyecto = np.array( [sorted_df[vsub].sum() for vsub in v_sub_columns] )*12
+                
+        diferencial_volumen_recuperado = submedicion_sin_proyecto - submedicion_con_proyecto
+        diferencial_porcentaje = (diferencial_volumen_recuperado / consumo)
+        ingresos_volumen_recuperado = [sorted_df[ingreso].sum() for ingreso in ingreso_columns]
+        
+        
+        con_proyecto_error_ponderado_final = -1*submedicion_con_proyecto / (submedicion_con_proyecto + consumo)
+        sin_proyecto_error_ponderado_final = -1*submedicion_sin_proyecto / (submedicion_sin_proyecto + consumo)
+        
+        #---- Create the Dictionary
+        summary_df = self.create_summary_df(consumo,
+                                  submedicion_con_proyecto,
+                                  submedicion_sin_proyecto,
+                                  diferencial_volumen_recuperado,
+                                  diferencial_porcentaje,
+                                  ingresos_volumen_recuperado,
+                                  con_proyecto_error_ponderado_final,
+                                  sin_proyecto_error_ponderado_final,
+                                  capex,
+                                  n_de_medidores)
+        
+        #---- reorder the dataframe for proper output
+        
+        #move so it aligns with years
+        newColumnNames = [str(int(col)+1) for col in summary_df.columns]
+        summary_df = summary_df.rename({num: num+1 for num in summary_df.columns},axis="columns")
+        
+        summary_df["Año"] = summary_df.index
+        
+        #reorder
+        colsCampoPrimero = ["Año"] + [col for col in summary_df.columns if col != "Año"]
+        summary_df = summary_df[colsCampoPrimero]
+        
+        summary_df.iloc[0, summary_df.columns.get_loc("Año")] = scenario_percent_title
+        summary_df.iloc[0, 1:] = np.nan #remove duplicated years
+        #----- Final processing end
+        
+        self.dfs[sheetname] = summary_df
+        
+    def run_scenario_4(self, capex_max, sheetname= "RESUMEN E4"):
+        main_sheet_name = "BBDD - Error Actual"
+        main_df = self.dfs[main_sheet_name]
+        scenario_percent_title = f"Escenario: medidores con CAPEX ≈ {int(capex_max)}"
+        
+        consumo_col = "CONSUMO PROMEDIO"
+        v_sub_columns = [f"V_sub_{i}" for i in range(1,16)]
+        v_sub_proy_columns = [f'V_sub_proy_{i}' for i in range(1,16)]
+        ingreso_columns = [f"Ingresos_{i}" for i in range(1,16)]
+        inversion_col = "Inversion"
+        van_col = "VAN"
+        
+        #Calculate the CAPEX of Scenario 1
+        positiveVan_df = main_df[main_df[van_col] > 0]     
+        sorted_df = main_df[main_df[van_col] > 0].sort_values(by=van_col, ascending=False)
+        
+        # Use cumsum to accumulate the Inversión until it meets or exceeds the target CAPEX
+        sorted_df['Inversion_acumulada'] = -1*sorted_df[inversion_col].cumsum()
+        sorted_df = sorted_df[sorted_df['Inversion_acumulada'] <= capex_max]
+        
+        if sorted_df.empty:
+            raise ValueError("No valid rows found that meet the CAPEX condition. Adjust the capex_flat or check the data.")
+        
+        # Use the final DataFrame for calculations
+        sorted_df = sorted_df.drop(columns='Inversion_acumulada')
+        
+        self.add_usage_column(4, sorted_df)
+        
+        # Calculate required fields
+        
+        capex = -1*sorted_df[inversion_col].sum()
+        n_de_medidores = len(sorted_df)
+        
+        consumo = np.array( sorted_df[consumo_col].sum()) * 12
+        submedicion_con_proyecto = np.array( [sorted_df[vsub_proy].sum() for vsub_proy in v_sub_proy_columns] )*12
+        submedicion_sin_proyecto = np.array( [sorted_df[vsub].sum() for vsub in v_sub_columns] )*12
+                
+        diferencial_volumen_recuperado = submedicion_sin_proyecto - submedicion_con_proyecto
+        diferencial_porcentaje = (diferencial_volumen_recuperado / consumo)
+        ingresos_volumen_recuperado = [sorted_df[ingreso].sum() for ingreso in ingreso_columns]
+        
+        
+        con_proyecto_error_ponderado_final = -1*submedicion_con_proyecto / (submedicion_con_proyecto + consumo)
+        sin_proyecto_error_ponderado_final = -1*submedicion_sin_proyecto / (submedicion_sin_proyecto + consumo)
+        
+        #---- Create the Dictionary
+        
+        summary_df = self.create_summary_df(consumo,
+                                  submedicion_con_proyecto,
+                                  submedicion_sin_proyecto,
+                                  diferencial_volumen_recuperado,
+                                  diferencial_porcentaje,
+                                  ingresos_volumen_recuperado,
+                                  con_proyecto_error_ponderado_final,
+                                  sin_proyecto_error_ponderado_final,
+                                  capex,
+                                  n_de_medidores)
+        
+        #---- reorder the dataframe for proper output
+        
+        #move so it aligns with years
+        newColumnNames = [str(int(col)+1) for col in summary_df.columns]
+        summary_df = summary_df.rename({num: num+1 for num in summary_df.columns},axis="columns")
+        
+        summary_df["Año"] = summary_df.index
+        
+        #reorder
+        colsCampoPrimero = ["Año"] + [col for col in summary_df.columns if col != "Año"]
+        summary_df = summary_df[colsCampoPrimero]
+        
+        summary_df.iloc[0, summary_df.columns.get_loc("Año")] = scenario_percent_title
+        summary_df.iloc[0, 1:] = np.nan #remove duplicated years
+        #----- Final processing end
+        
+        self.dfs[sheetname] = summary_df
+
+    def run_scenario_5(self, tasa = 0.07, sheetname= "RESUMEN E5"):
+        main_sheet_name = "BBDD - Error Actual"
+        main_df = self.dfs[main_sheet_name]
+        scenario_percent_title = f"Escenario 5: TIR del flujo resultante igual a {int(tasa*100)}% (VAN = 0)"
+        
+        consumo_col = "CONSUMO PROMEDIO"
+        v_sub_columns = [f"V_sub_{i}" for i in range(1,16)]
+        v_sub_proy_columns = [f'V_sub_proy_{i}' for i in range(1,16)]
+        ingreso_columns = [f"Ingresos_{i}" for i in range(1,16)]
+        inversion_col = "Inversion"
+        van_col = "VAN"
+                
+        # Use cumsum to accumulate the VAN until it's close to 0
+        sorted_df = main_df.sort_values(by=van_col, ascending=False)
+        sorted_df['VAN_acumulado'] = sorted_df[van_col].cumsum()
+        
+        closest_to_zero_index = sorted_df['VAN_acumulado'].abs().idxmin()
+
+        # Get the subset of the DataFrame up to and including that row
+        subset_df = sorted_df.loc[:closest_to_zero_index]
+        
+        if subset_df.empty:
+            raise ValueError("No valid rows found that meet the TIR condition. Adjust the TIR_PERCENT or check the data.")
+        
+        # Use the final DataFrame for calculations
+        subset_df = subset_df.drop(columns='VAN_acumulado')
+        
+        self.add_usage_column(5, subset_df)
+        
+        # Calculate required fields
+        
+        capex = -1*subset_df[inversion_col].sum()
+        n_de_medidores = len(subset_df)
+        
+        consumo = np.array( subset_df[consumo_col].sum()) * 12
+        submedicion_con_proyecto = np.array( [subset_df[vsub_proy].sum() for vsub_proy in v_sub_proy_columns] )*12
+        submedicion_sin_proyecto = np.array( [subset_df[vsub].sum() for vsub in v_sub_columns] )*12
+                
+        diferencial_volumen_recuperado = submedicion_sin_proyecto - submedicion_con_proyecto
+        diferencial_porcentaje = (diferencial_volumen_recuperado / consumo)
+        ingresos_volumen_recuperado = [subset_df[ingreso].sum() for ingreso in ingreso_columns]
+        
+        
+        con_proyecto_error_ponderado_final = -1*submedicion_con_proyecto / (submedicion_con_proyecto + consumo)
+        sin_proyecto_error_ponderado_final = -1*submedicion_sin_proyecto / (submedicion_sin_proyecto + consumo)
+        
+        #---- Create the Dictionary
+        
+        summary_df = self.create_summary_df(consumo,
+                                  submedicion_con_proyecto,
+                                  submedicion_sin_proyecto,
+                                  diferencial_volumen_recuperado,
+                                  diferencial_porcentaje,
+                                  ingresos_volumen_recuperado,
+                                  con_proyecto_error_ponderado_final,
+                                  sin_proyecto_error_ponderado_final,
+                                  capex,
+                                  n_de_medidores)
+        
+        #---- reorder the dataframe for proper output
+        
+        #move so it aligns with years
+        newColumnNames = [str(int(col)+1) for col in summary_df.columns]
+        summary_df = summary_df.rename({num: num+1 for num in summary_df.columns},axis="columns")
+        
+        summary_df["Año"] = summary_df.index
+        
+        #reorder
+        colsCampoPrimero = ["Año"] + [col for col in summary_df.columns if col != "Año"]
+        summary_df = summary_df[colsCampoPrimero]
+        
+        summary_df.iloc[0, summary_df.columns.get_loc("Año")] = scenario_percent_title
+        summary_df.iloc[0, 1:] = np.nan #remove duplicated years
+        #----- Final processing end
+        
+        self.dfs[sheetname] = summary_df
+        
+    def add_usage_column(self, scenario_number, subset_df):
+        main_sheet_name = "BBDD - Error Actual"
+        main_df = self.dfs[main_sheet_name]
+        
+        col_name = f"Usado en E{scenario_number}"
+        main_df[col_name] = 0  # Initialize column with 0s
+        main_df.loc[main_df.index.isin(subset_df.index), col_name] = 1
+        
+    def calculate_vsub_sums_inicialFinal(self):
+        main_sheet_name = "BBDD - Error Actual"
+        inicialFinal_sheet_name = "Inicial y final"
+        main_df = self.dfs[main_sheet_name]
+        inicialFinal_df = self.dfs[inicialFinal_sheet_name]
+        
+        vsub_col = "V sub"
+        v_sub_actual_col = "V_sub actual"
+        localidad_col = "LOCALIDAD"
+        error_col = "Error actual"
+        decaimiento_col = "Decaímiento anual"
+        
+        # Calculate the sum of 'V sub' for each 'LOCALIDAD' in main_df
+        sum_v_sub = main_df.groupby(localidad_col)[vsub_col].sum().reset_index()
+    
+        # Merge the calculated sums back into inicialFinal_df
+        inicialFinal_df = inicialFinal_df.merge(sum_v_sub, on=localidad_col, how='left')
+        
+        # Rename the merged column to 'V_sub actual'
+        inicialFinal_df.rename(columns={vsub_col: v_sub_actual_col}, inplace=True)
+        
+        self.dfs[inicialFinal_sheet_name] = inicialFinal_df  # Update the dataframe in the dictionary
+    
+        return inicialFinal_df
+        
+    def calculate_error_inicialFinal(self):
+        inicialFinal_sheet_name = "Inicial y final"
+        df = self.dfs[inicialFinal_sheet_name]
+        
+        error_col = "Error Actual"
+        v_sub_actual_col = "V_sub actual"
+        volumen_col = "Volumen"
+        
+        df[error_col] = df[v_sub_actual_col] / ( df[volumen_col]+df[v_sub_actual_col] )
+    
+    def calculate_decaimientoAnual(self):
+        inicialFinal_sheet_name = "Inicial y final"
+        df = self.dfs[inicialFinal_sheet_name]
+        
+        decaimiento_col= "Decaímiento anual"
+        
+        df[decaimiento_col ] = (df["Error final"] - df["Error inicial"]
+                                / df["Edad final"] - df["Edad inicial"]    ) 
             
     def general_cleanup(self):
         # List the sheet names to remove
@@ -534,7 +997,7 @@ class VanCalculator:
         with pd.ExcelWriter(filename_out, engine='xlsxwriter') as writer:
             for sheet_name, df in self.dfs.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
-        print(f"Dataframe(s) exported successfully to {filename_out}")
+        # print(f"Dataframe(s) exported successfully to {filename_out}")
 
 if __name__ == "__main__":
     folder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels\preprocessed"
