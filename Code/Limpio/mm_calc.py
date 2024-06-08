@@ -336,7 +336,7 @@ def seleccionar_autocontrol(df_autocontrol, localidad, tipo_error_CAlto):
     else: 
         raise Exception("Revisar")
         
-def error_old(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
+def error(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
     """Calcula el error de cada medidor tomando todas las consideraciones correspondientes."""
 
     diametro=group["Diametro_max"].tolist()[0]
@@ -360,7 +360,7 @@ def error_old(group,autocontrol, autocontrol_diametro_alto,  error_ultra, interv
         group['Decaimiento'] = group.apply(lambda x:x["Año 0"]+ x["Pendiente"]*np.log(x["Antiguedad ajustada"])/100  if x["Intervalo (l/h)"] in intervalos_cb else x["Año 0"] ,axis=1)
         return autocontrol_diametro_alto*(1 - group['% Consumo'].sum())+ sum(group['% Consumo']*group['Decaimiento'])
 
-def error(group, autocontrol, autocontrol_diametro_alto, error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
+def error_opt(group, autocontrol, autocontrol_diametro_alto, error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
     """Calcula el error de cada medidor tomando todas las consideraciones correspondientes."""
 
     diametro = group["Diametro_max"].values[0]

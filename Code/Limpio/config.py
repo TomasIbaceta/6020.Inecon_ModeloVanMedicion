@@ -39,13 +39,13 @@ class AppConfig:
                 *generate_column_names("V_sub_proy", 15),
                 *generate_column_names("Ingresos", 15),
                 *generate_column_names("C_E", 15),
-                "Inversion", 
                 *generate_column_names("Depr", 4, separator=' '),
                 "Valor res", 
                 *generate_column_names("base_A", 15, separator=' '),
                 *generate_column_names("base_B", 15, separator=' '),
                 *generate_column_names("impuesto", 15, separator= ' '),
                 *generate_column_names("Flujo", 15, separator=' '),
+                "Inversion", 
                 "VAN",
                 *generate_column_names("Usado en E", 5, separator='')
             ]
