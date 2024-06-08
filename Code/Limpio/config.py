@@ -47,6 +47,7 @@ class AppConfig:
                 *generate_column_names("impuesto", 15, separator= ' '),
                 *generate_column_names("Flujo", 15, separator=' '),
                 "VAN",
+                *generate_column_names("Usado en E", 5, separator='')
             ]
         }
         

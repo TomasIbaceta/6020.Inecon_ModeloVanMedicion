@@ -619,6 +619,15 @@ class VanCalculator:
         summary_data["Sin Proyecto - Error ponderado final"] = list(ErrorFinalSin)
         return summary_data
 
+
+    def add_usage_column(self, scenario_number, subset_df):
+        main_sheet_name = "BBDD - Error Actual"
+        main_df = self.dfs[main_sheet_name]
+        
+        col_name = f"Usado en E{scenario_number}"
+        main_df[col_name] = 0  # Initialize column with 0s
+        main_df.loc[main_df.index.isin(subset_df.index), col_name] = 1
+        
     def run_scenario_1(self, van_value = 0):
         main_sheet_name = "BBDD - Error Actual"
         main_df = self.dfs[main_sheet_name]
@@ -633,6 +642,8 @@ class VanCalculator:
         
         van_col = "VAN"
         filtered_df = main_df[main_df[van_col] > van_value]
+        
+        self.add_usage_column(1, filtered_df)
         
         capex = -1*filtered_df[inversion_col].sum()
         n_de_medidores = len(filtered_df)
@@ -680,13 +691,17 @@ class VanCalculator:
         self.dfs[scenario_1_name] = summary_df
         
     
-    def run_scenario_2(self, capex_ratio=0.65, sheetname = "RESUMEN E2"):
-        self.run_scenario_percentCapex(sheetname = sheetname, capex_ratio = capex_ratio)
+    def run_scenario_2(self, scenario_number = 2, capex_ratio=0.65, sheetname = "RESUMEN E2"):
+        self.run_scenario_percentCapex(scenario_number = scenario_number,
+                                       sheetname = sheetname,
+                                       capex_ratio = capex_ratio)
         
-    def run_scenario_3(self, capex_ratio=0.30, sheetname = "RESUMEN E3"):
-        self.run_scenario_percentCapex(sheetname = sheetname, capex_ratio = capex_ratio)
+    def run_scenario_3(self, scenario_number = 3, capex_ratio=0.30, sheetname = "RESUMEN E3"):
+        self.run_scenario_percentCapex(scenario_number = scenario_number,
+                                       sheetname = sheetname,
+                                       capex_ratio = capex_ratio)
     
-    def run_scenario_percentCapex(self, sheetname, capex_ratio):
+    def run_scenario_percentCapex(self, scenario_number, sheetname, capex_ratio):
         main_sheet_name = "BBDD - Error Actual"
         main_df = self.dfs[main_sheet_name]
         scenario_percent_title = f"Escenario: medidores con CAPEX ≈ {int(capex_ratio * 100)}% del CAPEX de E1"
@@ -713,6 +728,8 @@ class VanCalculator:
         
         # Use the final DataFrame for calculations
         sorted_df = sorted_df.drop(columns='Inversion_Cum')
+        
+        self.add_usage_column(scenario_number, sorted_df)
         
         capex = -1*sorted_df[inversion_col].sum()
         n_de_medidores = len(sorted_df)
@@ -785,6 +802,8 @@ class VanCalculator:
         
         # Use the final DataFrame for calculations
         sorted_df = sorted_df.drop(columns='Inversion_acumulada')
+        
+        self.add_usage_column(4, sorted_df)
         
         # Calculate required fields
         
@@ -860,6 +879,8 @@ class VanCalculator:
         
         # Use the final DataFrame for calculations
         subset_df = subset_df.drop(columns='VAN_acumulado')
+        
+        self.add_usage_column(5, subset_df)
         
         # Calculate required fields
         
