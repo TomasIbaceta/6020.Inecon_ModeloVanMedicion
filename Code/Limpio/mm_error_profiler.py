@@ -6,6 +6,16 @@ import pstats
 import pandas as pd
 import numpy as np
 
+from joblib import Parallel, delayed
+
+def parallel_error_test(groups, autocontrol, autocontrol_diametro_alto, error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
+    results = Parallel(n_jobs=-1)(
+        delayed(error_test)(group, autocontrol, autocontrol_diametro_alto, error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag) 
+        for name, group in groups
+    )
+    return results
+
+
 def mm_calc_run_alg_all_TEST(exceldata):
     # Retrieve all localities
     localidades = get_localidades_from_excel(exceldata)
@@ -26,8 +36,8 @@ def mm_calc_run_alg_all_TEST(exceldata):
     # Iterate through all localities and process them
     for localidad in localidades:
         
-        if localidad != "CABILDO":
-            continue
+        # if localidad != "CONSTITUCION":
+        #     continue
         
         localidades_necesarias = get_localidades_in_DATOS(exceldata)
         if localidad not in localidades_necesarias:
@@ -127,8 +137,16 @@ def mm_calc_test_err(exceldata, parametros_localidad):
     E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
             .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
             .groupby("INSTALACION").apply(lambda x: error_test(x, autocontrol, autocontrol_diametro_alto,  
-                                                               error_ultra, intervalos_caudal_bajo, 
-                                                               intervalos_caudal_bajo_c25))
+                                                                error_ultra, intervalos_caudal_bajo, 
+                                                                intervalos_caudal_bajo_c25))
+            
+    # groups = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
+    #             .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
+    #             .groupby("INSTALACION")
+    
+    # E = parallel_error_test(groups, autocontrol, autocontrol_diametro_alto, error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25)
+    
+    
     end_time = time.time()
     print(f"time: {end_time - start_time} ")
     
@@ -143,11 +161,11 @@ def mm_calc_test_err(exceldata, parametros_localidad):
     #     60298899.0: -0.042350
     # }, name='INSTALACION')
     
-    expected_E = pd.read_csv("E_output.csv", index_col=0).squeeze("columns")
+    # expected_E = pd.read_csv("E_output.csv", index_col=0).squeeze("columns")
     
-    # Now you can compare it with the computed E
-    comparison = np.allclose(E.values, expected_E.values, atol=1e-8)
-    print("Comparison result:", comparison)
+    # # Now you can compare it with the computed E
+    # comparison = np.allclose(E.values, expected_E.values, atol=1e-8)
+    # print("Comparison result:", comparison)
     # print("Computed E:\n", E)
     # print("Expected E:\n", expected_E)
 
@@ -207,7 +225,7 @@ def error_test(group, autocontrol, autocontrol_diametro_alto, error_ultra, inter
 if __name__ == "__main__": 
     excelFolder = r"C:\GitHub\6020.Inecon_ModeloVanMedicion\6020.Inecon_ModeloVanMedicion\Code\Limpio\Excels"
     # excelName = r"error_test.xlsx"
-    excelName = r"INPUT ADV 28.05 - prueba.xlsx"
+    excelName = r"modelo MM - TALCA 28.12_v6.xlsx"
     excelPath = f"{excelFolder}\{excelName}"
     exceldata = pd.read_excel(excelPath, sheet_name=None)
         

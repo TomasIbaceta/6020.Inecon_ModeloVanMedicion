@@ -26,13 +26,38 @@ class AppConfig:
                                'RESUMEN E1','RESUMEN E2', 'RESUMEN E3', 'RESUMEN E4', 'RESUMEN E5']
         
         
-        self.sheets_config = {
+        self.sheets_config_old = {
             "BBDD - Error Actual": [
                 "LOCALIDAD", "DIAMETRO_MEDIDOR", "FECHA_MONTAJE", "CLASE", "INSTALACION", 
                 "CONSUMO PROMEDIO", "SECTOR AP", "Clase corregida", 
                 "Diametro_max", "Antiguedad ajustada", "Curva proy", "Error", 
                 *generate_column_names("Error", 15),
                 "Clase", "Grupo", 
+                *generate_column_names("Error", 16, start=0.5, step=1, separator='_'),  # Error_0.5 to Error_15.5
+                "V sub", "Precision", "DN", "Tarifa", 
+                *generate_column_names("V_sub", 15),
+                *generate_column_names("V_sub_proy", 15),
+                *generate_column_names("Ingresos", 15),
+                *generate_column_names("C_E", 15),
+                *generate_column_names("Depr", 4, separator=' '),
+                "Valor res", 
+                *generate_column_names("base_A", 15, separator=' '),
+                *generate_column_names("base_B", 15, separator=' '),
+                *generate_column_names("impuesto", 15, separator= ' '),
+                *generate_column_names("Flujo", 15, separator=' '),
+                "Inversion", 
+                "VAN",
+                *generate_column_names("Usado en E", 5, separator='')
+            ]
+        }
+        
+        self.sheets_config = {
+            "BBDD - Error Actual": [
+                "LOCALIDAD", "DIAMETRO_MEDIDOR", "FECHA_MONTAJE", "CLASE", "INSTALACION", 
+                "CONSUMO PROMEDIO", "SECTOR AP", "Clase corregida", 
+                "Diametro_max", "Antiguedad ajustada", "Error", 
+                *generate_column_names("Error", 15),
+                "Referencia Decaimiento Base", "Referencia Decaimiento Reemplazo",
                 *generate_column_names("Error", 16, start=0.5, step=1, separator='_'),  # Error_0.5 to Error_15.5
                 "V sub", "Precision", "DN", "Tarifa", 
                 *generate_column_names("V_sub", 15),

@@ -67,7 +67,6 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
     df_autocontrol =exceldata["PROGRAMA AUTOCONTROL"]
     df_porc_caudal_para_pendiente=exceldata["PORC CAUDAL PENDIENTE"]
     df_clase_grupo_decaimiento=exceldata["REFERENCIA CLASES DECAIMIENTO"]
-    df_referenciasClase=exceldata["REFERENCIA DECAIMIENTO"]
 
     ## Carga de parámetros de localidad
     fecha_estudio = parametros_localidad["fecha_estudio"]
@@ -86,9 +85,13 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
     #parametros fijos
     intervalos_caudal_bajo=['8-16','16-32', '32-66' ]
     intervalos_caudal_bajo_c25=['16-32', '32-66' ]
-
+<<<<<<< HEAD
+    medidores_presicion=['R400', 'R800'] #TODO: medidores de precision
+    diametro_max=38
+    error_ultra=-0.02
+=======
     medidores_presicion=['R400', 'R800']
-
+>>>>>>> Probando-version-de-entrega-1
 
     #selecccionar datos
     data = data_completa.loc[(data_completa["LOCALIDAD"]== localidad) & (data_completa["SECTOR AP"].isin(sectores))] 
@@ -111,7 +114,7 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
     #nota: no dejes nunca de levantar esas Clases de referencia originales
 
     #Generar clase del medidor y grupo en el que pertenece
-    # data[["Clase_porformula", "Grupo_porformula"]]=data.apply(lambda x:  armar_clase(x, diametro_max, medidores_presicion), axis=1,result_type="expand") 
+    data[["Clase_porformula", "Grupo_porformula"]]=data.apply(lambda x:  armar_clase(x, diametro_max, medidores_presicion), axis=1,result_type="expand") 
     
     # data["Grupo"] = contruir_grupo([df[f"CLASE"], df[f"DIAMETRO_MEDIDOR"]  ]) #es innecesario despues de los cambios en la generacion de clase, pero se mantiene para no perturbar el resto del programa
     # df_referenciaClase["Grupo"] = contruir_grupo([df[f"CLASE"], df[f"DIAMETRO_MEDIDOR"]  ])
@@ -132,24 +135,18 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
                                                       edad_minima=edad_minima_decaimiento,
                                                       edad_maxima=edad_maxima_decaimiento)
     
-    # data = armar_curva_proyectada(data)
-    data["TipoMedidorBase"] = data['CLASE'].astype(str) + '-' + data['DIAMETRO_MEDIDOR'].astype(str)
-    df_referenciasClase["TipoMedidorBase"] = df_referenciasClase['CLASE_BASE'].astype(str) + '-' + df_referenciasClase['DIAMETRO_MEDIDOR_BASE'].astype(str)
+    data = armar_curva_proyectada(data)
+    
     #----- SNIPPET BEGIN HERE ----
     
-    #ORIGINAL MAX 
     # Save the initial error calculation as error_0
-    # E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
-    #         .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
-    #         .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
-    #                                                       error_ultra, intervalos_caudal_bajo, 
-    #                                                       intervalos_caudal_bajo_c25))
+    E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
+            .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
+            .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
+                                                          error_ultra, intervalos_caudal_bajo, 
+                                                          intervalos_caudal_bajo_c25))
             
-    E = data.merge(df_referenciasClase, on="TipoMedidorBase", how='left')
-    E = E.merge(caudal_ext, left_on="Referencia Decaimiento Base", right_on="Clase", how='left')
-    E = E.groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
-                                                  error_ultra, intervalos_caudal_bajo, 
-                                                  intervalos_caudal_bajo_c25))
+    #TODO: reemplazar el merge con grupo (ya no es necesario) si no que va a pasar directo con pasar la clase de referencia con su curva de error.
             
     E = E.reset_index(name='Error')
     data = data.merge(E, on='INSTALACION', how='left')
@@ -167,17 +164,11 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
             )
         )
         
-        # E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
-        #         .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
-        #         .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
-        #                                                       error_ultra, intervalos_caudal_bajo, 
-        #                                                       intervalos_caudal_bajo_c25))
-        E = data.merge(df_referenciasClase, on="TipoMedidorBase", how='left')
-        E = E.merge(caudal_ext, left_on="Referencia Decaimiento Base", right_on="Clase", how='left')
-        E = E.groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
-                                                      error_ultra, intervalos_caudal_bajo, 
-                                                      intervalos_caudal_bajo_c25))
-        
+        E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
+                .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
+                .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
+                                                              error_ultra, intervalos_caudal_bajo, 
+                                                              intervalos_caudal_bajo_c25))
         E = E.reset_index(name=f'Error_{i}')
         data = data.merge(E, on='INSTALACION', how='left')
     
@@ -194,28 +185,20 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
                                                       edad_minima=edad_minima_decaimiento,
                                                       edad_maxima=edad_maxima_decaimiento)
         
-    # data['Original Clase'] = data['Clase']
-    # data.drop(['Clase'], axis=1, inplace=True)
-    # data['Clase'] = data['Curva proy']
+    data['Original Clase'] = data['Clase']
+    data.drop(['Clase'], axis=1, inplace=True)
+    data['Clase'] = data['Curva proy']
     
-    # data['Original Grupo'] = data['Grupo']
-    # data.drop(['Grupo'], axis=1, inplace=True)
-    # data['Grupo'] = data['Curva proy']
+    data['Original Grupo'] = data['Grupo']
+    data.drop(['Grupo'], axis=1, inplace=True)
+    data['Grupo'] = data['Curva proy']
     
     # Calculate Error_0.5 using 'Curva proy'
-    # E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
-    #         .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
-    #         .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
-    #                                                       error_ultra, intervalos_caudal_bajo, 
-    #                                                       intervalos_caudal_bajo_c25, 1))
-    
-    E = data.merge(df_referenciasClase, on="TipoMedidorBase", how='left')
-    E = E.merge(caudal_ext, left_on="Referencia Decaimiento Reemplazo", right_on="Clase", how='left')
-    E = E.groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
-                                                  error_ultra, intervalos_caudal_bajo, 
-                                                  intervalos_caudal_bajo_c25))
-    
-    
+    E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
+            .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
+            .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
+                                                          error_ultra, intervalos_caudal_bajo, 
+                                                          intervalos_caudal_bajo_c25, 1))
     E = E.reset_index(name='Error_0.5')
     data = data.merge(E, on='INSTALACION', how='left')
     
@@ -238,32 +221,23 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
             )
         )
         
-        # E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
-        #         .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
-        #         .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
-        #                                                       error_ultra, intervalos_caudal_bajo, 
-        #                                                       intervalos_caudal_bajo_c25, 1))
-        E = data.merge(df_referenciasClase, on="TipoMedidorBase", how='left')
-        E = E.merge(caudal_ext, left_on="Referencia Decaimiento Reemplazo", right_on="Clase", how='left')
-        E = E.groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
-                                                      error_ultra, intervalos_caudal_bajo, 
-                                                      intervalos_caudal_bajo_c25))
-        
+        E = data.merge(df_clase_grupo_decaimiento, on="Grupo", how='left')\
+                .merge(caudal_ext, left_on="Clase referencia", right_on="Clase", how='left')\
+                .groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
+                                                              error_ultra, intervalos_caudal_bajo, 
+                                                              intervalos_caudal_bajo_c25, 1))
         E = E.reset_index(name=f'Error_{col_sufix + 0.5}')
         data = data.merge(E, on='INSTALACION', how='left')
     
-    # add the extra columns just at the end
-    data = data.merge(df_referenciasClase, on="TipoMedidorBase", how='left')
-    
     # Restore the original 'Clase corregida'
     # data['Clase corregida'] = data['Original Clase Corregida']
-    # data['Clase'] = data['Original Clase']
-    # data['Grupo'] = data['Original Grupo']
+    data['Clase'] = data['Original Clase']
+    data['Grupo'] = data['Original Grupo']
     
     # Optionally, drop the temporary column if no longer needed
     # data.drop(columns=['Original Clase Corregida'], inplace=True)
-    # data.drop(columns=['Original Clase'], inplace=True)
-    # data.drop(columns=['Original Grupo'], inplace=True)
+    data.drop(columns=['Original Clase'], inplace=True)
+    data.drop(columns=['Original Grupo'], inplace=True)
     
     # Optionally, reset "Antiguedad ajustada" to the current year after all iterations are complete
     data["Antiguedad ajustada"] = calcular_antiguedad(data["FECHA_MONTAJE"],
@@ -389,18 +363,13 @@ def seleccionar_autocontrol(df_autocontrol, localidad, tipo_error_CAlto):
 def error(group,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25, flag=1):
     """Calcula el error de cada medidor tomando todas las consideraciones correspondientes."""
 
-    # diametro=group["Diametro_max"].tolist()[0]
-    # if flag == 1:    
-    #     # grupo = group["Grupo"].tolist()[0]
-    #     grupo = group["Referencia Decaimiento Base"].tolist()[0]
-    # else:
-    #     # grupo = group["Curva proy"].tolist()[0]
-    #     grupo = group["Referencia Decaimiento Reemplazo"].tolist()[0]
+    diametro=group["Diametro_max"].tolist()[0]
+    if flag == 1:    
+        grupo = group["Grupo"].tolist()[0]
+    else:
+        grupo = group["Curva proy"].tolist()[0]
         
-    diametro = group["Diametro_max"].values[0]
-    grupo = group["Referencia Decaimiento Base"].values[0] if flag == 1 else group["Referencia Decaimiento Reemplazo"].values[0]
-        
-    if grupo =='ULTRA':
+    if grupo=='ULTRA':
         return error_ultra
         
     if grupo =='C-25':
