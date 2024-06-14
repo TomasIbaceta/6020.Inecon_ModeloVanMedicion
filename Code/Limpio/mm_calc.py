@@ -285,7 +285,7 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
     data["Diametro_max"]= data["Diametro_max"].astype(int)
 
 
-    inicial_y_final=IyF(data, edad_inicial_iyf,edad_final_iyf, df_clase_grupo_decaimiento, caudal_ext, autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25)
+    inicial_y_final=IyF(data, df_clases, edad_inicial_iyf,edad_final_iyf, df_clase_grupo_decaimiento, caudal_ext, autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25)
 
     inicial_y_final["Diametro_max"]=inicial_y_final["Diametro_max"].astype(int)
     inicial_y_final["Precision"]=inicial_y_final["Precision"].astype(int)
@@ -442,6 +442,7 @@ def error_opt(group, autocontrol, autocontrol_diametro_alto, error_ultra, interv
         return autocontrol_diametro_alto * (1 - consumo_sum) + consumo_decaimiento_sum
     
 def IyF(data,
+        df_clases,
         edad_inicial_iyf,
         edad_final_iyf, 
         df_clase_grupo_decaimiento, 
@@ -454,22 +455,41 @@ def IyF(data,
     """Calcula la pestaña Inicial y Final, que corresponde a un analisis por tipo de medidor y sector del error inicial y final para cada configuracion."""
 
     # Variables generales (resumen agrupado de BBDD) 
-    inicial_y_final = data.groupby(['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Grupo', 'Diametro_max']).agg(Cantidad=("INSTALACION", 'count'),
-                                                                                                                Volumen=("CONSUMO PROMEDIO", 'sum')).reset_index()
+    inicial_y_final = data.merge(df_clases, left_on="CLASE", right_on="Clase", how='left') #agregada con jorge, igual que df_clases
+    
+    # inicial_y_final = data.groupby(['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Grupo', 'Diametro_max']).agg(Cantidad=("INSTALACION", 'count'),
+    #                                                                                                             Volumen=("CONSUMO PROMEDIO", 'sum')).reset_index()
+    
+    inicial_y_final = data.groupby(['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Referencia Decaimiento Base', 'Diametro_max']).agg(Cantidad=("INSTALACION", 'count'),
+                                                                                                            Volumen=("CONSUMO PROMEDIO", 'sum')).reset_index()
+
 
     #Calculo de error inicial
     inicial_y_final['Antiguedad ajustada']=edad_inicial_iyf
-    ei=inicial_y_final.merge(df_clase_grupo_decaimiento, on="Grupo", how='left').merge(caudal_ext,left_on="Clase referencia", right_on="Clase", how='left').groupby(['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Grupo', 'Diametro_max']).apply(lambda x: error(x,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25)).reset_index(name="Error inicial")
+    # ei=inicial_y_final.merge(df_clase_grupo_decaimiento, on="Grupo", how='left').merge(caudal_ext,left_on="Clase referencia", right_on="Clase", how='left').groupby(['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Grupo', 'Diametro_max']).apply(lambda x: error(x,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25)).reset_index(name="Error inicial")
+    
+    # ei=inicial_y_final.merge(df_clase_grupo_decaimiento, on="Grupo", how='left') \
+        
+    ei=inicial_y_final.merge(caudal_ext,left_on="Referencia Decaimiento Base", right_on="Clase", how='left')
+    ei=ei.groupby(['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Referencia Decaimiento Base', 'Diametro_max'])           \
+         .apply(lambda x: error(x,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25))\
+         .reset_index(name="Error inicial")
+        
     inicial_y_final=inicial_y_final.rename(columns={'Antiguedad ajustada': 'Edad inicial'})
 
     #Calculo de error final
     inicial_y_final['Antiguedad ajustada']=edad_final_iyf
-    ef=inicial_y_final.merge(df_clase_grupo_decaimiento, on="Grupo", how='left').merge(caudal_ext,left_on="Clase referencia", right_on="Clase", how='left').groupby(['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Grupo', 'Diametro_max']).apply(lambda x: error(x,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25)).reset_index(name="Error final")
+    # ef=inicial_y_final.merge(df_clase_grupo_decaimiento, on="Grupo", how='left').merge(caudal_ext,left_on="Clase referencia", right_on="Clase", how='left').groupby(['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Grupo', 'Diametro_max']).apply(lambda x: error(x,autocontrol, autocontrol_diametro_alto,  error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25)).reset_index(name="Error final")
+    ef=inicial_y_final.merge(caudal_ext,left_on="Referencia Decaimiento Base", right_on="Clase", how='left')
+    ef=ef.groupby(['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Referencia Decaimiento Base', 'Diametro_max'])          \
+         .apply(lambda x: error(x,autocontrol, autocontrol_diametro_alto, error_ultra, intervalos_caudal_bajo, intervalos_caudal_bajo_c25))\
+         .reset_index(name="Error final")
+         
     inicial_y_final=inicial_y_final.rename(columns={'Antiguedad ajustada': 'Edad final'})
 
     #Mezcla de todo en la misma tabla
-    inicial_y_final=inicial_y_final.merge(ei,on= ['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Grupo', 'Diametro_max'])
-    inicial_y_final=inicial_y_final.merge(ef,on= ['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Grupo', 'Diametro_max'])
+    inicial_y_final=inicial_y_final.merge(ei,on= ['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Referencia Decaimiento Base', 'Diametro_max'])
+    inicial_y_final=inicial_y_final.merge(ef,on= ['LOCALIDAD', "SECTOR AP","Precision", 'DN', "Clase corregida", 'Referencia Decaimiento Base', 'Diametro_max'])
 
     #Obtencion de volumen subestimado
     inicial_y_final["V_sub i"]= -inicial_y_final["Volumen"]*inicial_y_final["Error inicial"]/(1+inicial_y_final["Error inicial"])

@@ -14,7 +14,8 @@ def validate_numeric_columns(df, column_names):
 
 def check_rollover_conditions(row, i, inversion_col, valor_res_col):
     if i == 14 or i == 15:
-        condition = (row['DIAMETRO_MEDIDOR'] >= 38) and (row['Curva proy'] == 'ULTRA')
+        # condition = (row['DIAMETRO_MEDIDOR'] >= 38) and (row['Curva proy'] == 'ULTRA')
+        condition = (row['DIAMETRO_MEDIDOR'] >= 38) and (row['Referencia Decaimiento Reemplazo'] == 'ULTRA')
         if condition:
             pass
             # print(f'No rollover applied for Instalacion {row["INSTALACION"]}: Diametro: {row["DIAMETRO_MEDIDOR"]}, curva_proy: {row["Curva proy"]}')
@@ -102,13 +103,31 @@ class VanCalculator:
         self.calculate_flujo()
         self.calculate_van( rate=self.params['Tarifa'])
         
-        self.load_scenario_params()
-        self.run_scenario_1(van_value = self.scenario_params['s1_van_percent'])
-        self.run_scenario_2(capex_ratio = self.scenario_params['s2_capex_percent'])
-        self.run_scenario_3(capex_ratio = self.scenario_params['s3_capex_percent'])
-        self.run_scenario_4(capex_max = self.scenario_params['s4_capex_flat'])
-        self.run_scenario_5(tasa = self.params['Tarifa'])
         
+        self.load_scenario_params()
+        
+        # Salvenme de escribir algo así denuevo
+        try:
+            self.run_scenario_1(van_value = self.scenario_params['s1_van_percent'])
+        except:
+            pass
+        try:
+            self.run_scenario_2(capex_ratio = self.scenario_params['s2_capex_percent'])
+        except:
+            pass
+        try:
+            self.run_scenario_3(capex_ratio = self.scenario_params['s3_capex_percent'])
+        except:
+            pass
+        try:
+            self.run_scenario_4(capex_max = self.scenario_params['s4_capex_flat'])
+        except:
+            pass
+        try:
+            self.run_scenario_5(tasa = self.params['Tarifa'])
+        except:
+            pass
+            
         self.calculate_vsub_sums_inicialFinal()
         self.calculate_error_inicialFinal()
         self.calculate_decaimientoAnual()
@@ -159,9 +178,11 @@ class VanCalculator:
     def calculate_vsub_proy(self, sheet_name="BBDD - Error Actual"):
         df = self.dfs[sheet_name]
         consumoPromedioCol = 'CONSUMO PROMEDIO'
-        curvaProyectadaCol = 'Curva proy' 
+        # curvaProyectadaCol = 'Curva proy' 
+        curvaProyectadaCol = 'Referencia Decaimiento Reemplazo' 
         curvaCol = 'Clase corregida' 
-        grupoCol = 'Grupo'
+        # grupoCol = 'Grupo'
+        grupoCol = 'Referencia Decaimiento Base' 
         antiguedadCol = 'Antiguedad ajustada' 
         
         for x in range(1, 16):
@@ -403,7 +424,8 @@ class VanCalculator:
         main_df = validate_numeric_columns(main_df, [depr_col, c_e_col, ingreso_col])
          
         # Create condition for ULTRA+38 exclusion
-        condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Curva proy'] != 'ULTRA')
+        # condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Curva proy'] != 'ULTRA')
+        condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Referencia Decaimiento Reemplazo'] != 'ULTRA')
     
         main_df[base_col] = np.where(
             condition,
@@ -523,7 +545,9 @@ class VanCalculator:
             # Apply conditions for rollover
             if i in [14, 15]:
                 # Check if either condition is true to apply rollover
-                condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Curva proy'] != 'ULTRA')
+                # condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Curva proy'] != 'ULTRA')
+                condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Referencia Decaimiento Reemplazo'] != 'ULTRA')
+                
                 rollover_addition = main_df[inversion_col] if i == 14 else main_df[valor_res_col]
                 flujo_data[flujo_col] += np.where(condition, rollover_addition, 0)
                 main_df.apply(lambda row: check_rollover_conditions(row, i, inversion_col, valor_res_col), axis=1)
@@ -551,10 +575,10 @@ class VanCalculator:
             [row[col] / ((1 + rate) ** (i + 1)) for i, col in enumerate(flujo_cols)]
         ), axis=1)
                         
-        #TODO: confirmar con INECON que la formula esté bien aplicada (instalan un medidor en año 16?)
         #agregar la inversion al final
         #... a menos que sea un ultra+38, en ese caso hay tasa de descuento en la inversión
-        condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Curva proy'] != 'ULTRA')
+        # condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Curva proy'] != 'ULTRA')
+        condition = (main_df['DIAMETRO_MEDIDOR'] < 38) | (main_df['Referencia Decaimiento Reemplazo'] != 'ULTRA')
     
         main_df[van_col] = np.where(
             condition,
