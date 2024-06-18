@@ -1,0 +1,13 @@
+2024-06-14 17:17:06 - __main__ - INFO - 
+===============
+FORMATO
+app.log: Descartado, formato inválido.
+INPUT ADV 28.05 - prueba.txt: Descartado, formato inválido.
+modelo MM - TALCA 28.12_v6.txt: Descartado, formato inválido.
+output_modelo MM - TALCA 28.12_v6 - E1.xlsx: OK
+
+2024-06-14 17:17:08 - __main__ - INFO - 
+=============
+ALGORITMO
+output_modelo MM - TALCA 28.12_v6 - E1.xlsx: Error. formato de entrada de datos inválido.
+ Worksheet named 'PARAMETROS GLOBALES' not found

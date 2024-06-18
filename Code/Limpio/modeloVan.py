@@ -264,6 +264,9 @@ class VanCalculator:
                              if pd.notnull(row[tarifa_col]) and pd.notnull(row[v_sub_col]) and pd.notnull(row[v_sub_proy_col]) and row[consumo_promedio_col] != 0
                              else None), axis=1)
             
+            #esos valores deben ser *12 porque son anuales para números mensuales
+            main_df[c_e_col] = 12*main_df[c_e_col]
+            
         self.dfs[main_sheet_name] = main_df
     
     def calculate_inversion(self, main_sheet_name="BBDD - Error Actual"):
