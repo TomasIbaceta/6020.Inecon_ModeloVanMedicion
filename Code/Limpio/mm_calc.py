@@ -213,7 +213,7 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
     E = E.merge(caudal_ext, left_on="Referencia Decaimiento Reemplazo", right_on="Clase", how='left')
     E = E.groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
                                                   error_ultra, intervalos_caudal_bajo, 
-                                                  intervalos_caudal_bajo_c25))
+                                                  intervalos_caudal_bajo_c25, flag=0))
     
     
     E = E.reset_index(name='Error_0.5')
@@ -247,7 +247,7 @@ def mm_calc_run_alg(exceldata, parametros_localidad, scenario:dict):
         E = E.merge(caudal_ext, left_on="Referencia Decaimiento Reemplazo", right_on="Clase", how='left')
         E = E.groupby("INSTALACION").apply(lambda x: error(x, autocontrol, autocontrol_diametro_alto,  
                                                       error_ultra, intervalos_caudal_bajo, 
-                                                      intervalos_caudal_bajo_c25))
+                                                      intervalos_caudal_bajo_c25, flag=0))
         
         E = E.reset_index(name=f'Error_{col_sufix + 0.5}')
         data = data.merge(E, on='INSTALACION', how='left')
